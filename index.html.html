@@ -1,0 +1,1445 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>My Life Planner</title>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect width='100' height='100' rx='20' fill='%233A2E28'/><text y='.9em' font-size='72' x='12'>🌿</text></svg>" />
+<meta name="apple-mobile-web-app-title" content="Life Planner" />
+<meta name="apple-mobile-web-app-capable" content="yes" />
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+<meta name="theme-color" content="#3A2E28" />
+<script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/7.23.2/babel.min.js"></script>
+<!-- Firebase SDK -->
+<script type="module">
+  import{initializeApp}from"https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
+  import{getFirestore,doc,onSnapshot,setDoc}from"https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
+  import{getAuth,onAuthStateChanged,signInWithPopup,GoogleAuthProvider,createUserWithEmailAndPassword,signInWithEmailAndPassword,signOut,updateProfile}from"https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
+  // ══════════════════════════════════════════════════════
+  // STEP 1: Paste your Firebase config values below
+  // ══════════════════════════════════════════════════════
+  const firebaseConfig={
+    apiKey:           "AIzaSyDpVJdCeHsPV7yYs3hdHrCzABiMp_C0HPE",
+    authDomain:       "personal-planner-a889f.firebaseapp.com",
+    projectId:        "personal-planner-a889f",
+    storageBucket:    "personal-planner-a889f.firebasestorage.app",
+    messagingSenderId:"958230216089",
+    appId:            "1:958230216089:web:201dbb09dc7e415f0a2708"
+
+  };
+  // ══════════════════════════════════════════════════════
+  const app=initializeApp(firebaseConfig);
+  const db=getFirestore(app);
+  window._fbDoc=(p)=>doc(db,...p.split("/"));
+  window._fbOnSnapshot=onSnapshot;
+  window._fbSetDoc=setDoc;
+  window._fbConfigured=!firebaseConfig.apiKey.includes("PASTE_");
+  const auth=getAuth(app);
+  const gp=new GoogleAuthProvider();
+  window._fbOnAuth=(cb)=>onAuthStateChanged(auth,cb);
+  window._fbSignInGoogle=()=>signInWithPopup(auth,gp);
+  window._fbSignInEmail=(e,p)=>signInWithEmailAndPassword(auth,e,p);
+  window._fbSignUpEmail=(e,p,n)=>createUserWithEmailAndPassword(auth,e,p).then(r=>updateProfile(r.user,{displayName:n}).then(()=>r));
+  window._fbSignOut=()=>signOut(auth);
+  window.dispatchEvent(new Event("fbReady"));
+</script>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link href="https://fonts.googleapis.com/css2?family=Lora:ital,wght@0,400;0,600;1,400&family=Source+Sans+3:wght@300;400;600&display=swap" rel="stylesheet" />
+<style>
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{background:#F5F0E8;font-family:'Palatino Linotype',Palatino,Georgia,serif;color:#3A2E28}
+  .tab-btn{border:none;cursor:pointer;transition:all 0.2s;background:transparent}
+  .tab-btn:hover{transform:translateY(-2px)}
+  .card{background:#fff;border-radius:12px;box-shadow:0 2px 12px rgba(58,46,40,.08)}
+  .btn{border:none;border-radius:8px;cursor:pointer;font-family:'Source Sans 3',sans-serif;font-weight:600;transition:all .18s;padding:8px 16px}
+  .btn:hover{filter:brightness(.93);transform:translateY(-1px)}
+  .btn-primary{background:#7B5C4A;color:#fff}
+  .btn-danger{background:#D4524A;color:#fff}
+  .btn-ghost{background:transparent;color:#7B5C4A;border:1.5px solid #7B5C4A}
+  input,textarea,select{font-family:'Source Sans 3',sans-serif;border:1.5px solid #D4C9BC;border-radius:8px;padding:8px 12px;background:#FDFAF6;color:#3A2E28;outline:none;transition:border .2s}
+  input:focus,textarea:focus,select:focus{border-color:#7B5C4A}
+  label{font-family:'Source Sans 3',sans-serif;font-size:13px;color:#8A7A6A;font-weight:600;text-transform:uppercase;letter-spacing:.04em;display:block;margin-bottom:4px}
+  .badge{display:inline-block;border-radius:20px;padding:2px 10px;font-size:12px;font-weight:600;font-family:'Source Sans 3',sans-serif}
+  .modal-overlay{position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(58,46,40,.45);z-index:100;display:flex;align-items:center;justify-content:center;padding:16px}
+  .modal{background:#fff;border-radius:16px;padding:28px;width:100%;max-width:520px;max-height:90vh;overflow-y:auto;box-shadow:0 8px 40px rgba(58,46,40,.18)}
+  .form-row{margin-bottom:16px}
+  .tag{display:inline-block;border-radius:12px;padding:2px 10px;font-size:11px;font-weight:600;font-family:'Source Sans 3',sans-serif;margin:2px}
+</style>
+</head>
+<body>
+<div id="root"></div>
+<script type="text/babel">
+const {useState,useEffect,useCallback,useRef}=React;
+
+// ── Storage (Firebase + localStorage fallback) ──────────────────────────────
+const PLANNER_REF="planner/data";
+let _saveTimer=null,_pendingData=null;
+function fbSave(data){
+  _pendingData=data;
+  clearTimeout(_saveTimer);
+  _saveTimer=setTimeout(async()=>{
+    if(!window._fbConfigured)return;
+    try{await window._fbSetDoc(window._fbDoc(PLANNER_REF),_pendingData);}
+    catch(e){console.warn("Save failed",e);}
+  },900);
+}
+// localStorage fallback for non-Firebase mode
+function lsaveAll(data){try{localStorage.setItem("lp-all",JSON.stringify(data));}catch{}}
+function lloadAll(){try{const v=localStorage.getItem("lp-all");return v?JSON.parse(v):null;}catch{return null;}}
+
+// ── Seed Data ───────────────────────────────────────────────────────────────
+const seedTasks=[
+  {id:1,title:"Vacuum living room",category:"cleaning",recurrence:"weekly",day:"Monday",done:false,priority:"medium"},
+  {id:2,title:"Wash bed linen",category:"laundry",recurrence:"weekly",day:"Wednesday",done:false,priority:"medium"},
+  {id:3,title:"Water garden",category:"garden",recurrence:"daily",day:null,done:false,priority:"low"},
+  {id:4,title:"Check smoke alarms",category:"maintenance",recurrence:"monthly",day:null,done:false,priority:"high"},
+];
+const seedAppointments=[
+  {id:1,title:"GP Check-up",date:"2026-04-18",time:"10:00",notes:"Bring medication list",category:"health"},
+  {id:2,title:"Dentist",date:"2026-04-25",time:"14:30",notes:"",category:"health"},
+];
+const seedRecipes=[
+  {id:1,name:"Roast Chicken",servings:4,time:"90 min",category:"dinner",calories:420,ingredients:"Whole chicken, olive oil, garlic, rosemary, lemon, salt, pepper",method:"Preheat oven to 200°C. Rub chicken with oil, garlic and herbs. Roast for 1.5 hours until golden.",tags:["easy","comfort"]},
+  {id:2,name:"Vegetable Soup",servings:6,time:"45 min",category:"lunch",calories:180,ingredients:"Carrots, celery, onion, potato, vegetable stock, bay leaf, parsley",method:"Sauté onion and celery. Add chopped vegetables and stock. Simmer 30 min.",tags:["healthy","winter"]},
+  {id:3,name:"Banana Pancakes",servings:2,time:"20 min",category:"breakfast",calories:310,ingredients:"2 ripe bananas, 2 eggs, pinch of cinnamon, butter",method:"Mash bananas with eggs. Cook small rounds in buttered pan 2 min each side.",tags:["quick","sweet"]},
+];
+const seedFoods=[
+  {id:1,name:"Toast with butter",category:"breakfast",calories:180,notes:"2 slices"},
+  {id:2,name:"Porridge with honey",category:"breakfast",calories:290,notes:""},
+  {id:3,name:"Scrambled eggs on toast",category:"breakfast",calories:350,notes:"2 eggs, 2 slices"},
+  {id:4,name:"Cheese sandwich",category:"lunch",calories:420,notes:""},
+  {id:5,name:"Tuna salad",category:"lunch",calories:280,notes:""},
+  {id:6,name:"Pasta with tomato sauce",category:"dinner",calories:480,notes:"Standard serving"},
+  {id:7,name:"Grilled fish & vegetables",category:"dinner",calories:360,notes:""},
+  {id:8,name:"Apple",category:"snack",calories:80,notes:""},
+  {id:9,name:"Yoghurt",category:"snack",calories:150,notes:"Small tub"},
+];
+const seedPantry=[
+  // Tins & Jars
+  {id:101,name:"Chakalaka",category:"Tins & Jars",quantity:3,unit:"tins",lowStock:false,notes:""},
+  {id:102,name:"Baked beans",category:"Tins & Jars",quantity:4,unit:"tins",lowStock:false,notes:""},
+  {id:103,name:"Tomato & onion mix",category:"Tins & Jars",quantity:4,unit:"tins",lowStock:false,notes:""},
+  {id:104,name:"Whole peeled tomatoes",category:"Tins & Jars",quantity:3,unit:"tins",lowStock:false,notes:""},
+  {id:105,name:"Sweetcorn",category:"Tins & Jars",quantity:3,unit:"tins",lowStock:false,notes:""},
+  {id:106,name:"Pilchards in tomato sauce",category:"Tins & Jars",quantity:4,unit:"tins",lowStock:false,notes:""},
+  {id:107,name:"Tuna in brine",category:"Tins & Jars",quantity:4,unit:"tins",lowStock:false,notes:""},
+  {id:108,name:"Coconut milk",category:"Tins & Jars",quantity:2,unit:"tins",lowStock:false,notes:""},
+  {id:109,name:"Peanut butter",category:"Tins & Jars",quantity:1,unit:"jar",lowStock:false,notes:""},
+  {id:110,name:"Apricot jam",category:"Tins & Jars",quantity:1,unit:"jar",lowStock:false,notes:""},
+  // Dry Goods
+  {id:201,name:"Mielie meal (maize meal)",category:"Dry Goods",quantity:5,unit:"kg",lowStock:false,notes:""},
+  {id:202,name:"White rice",category:"Dry Goods",quantity:5,unit:"kg",lowStock:false,notes:""},
+  {id:203,name:"Spaghetti",category:"Dry Goods",quantity:2,unit:"pkt",lowStock:false,notes:""},
+  {id:204,name:"Penne pasta",category:"Dry Goods",quantity:2,unit:"pkt",lowStock:false,notes:""},
+  {id:205,name:"Lentils",category:"Dry Goods",quantity:1,unit:"kg",lowStock:false,notes:""},
+  {id:206,name:"Split peas",category:"Dry Goods",quantity:500,unit:"g",lowStock:false,notes:""},
+  {id:207,name:"Oats",category:"Dry Goods",quantity:1,unit:"kg",lowStock:false,notes:""},
+  {id:208,name:"Cake flour",category:"Dry Goods",quantity:2,unit:"kg",lowStock:false,notes:""},
+  {id:209,name:"Brown bread flour",category:"Dry Goods",quantity:2,unit:"kg",lowStock:false,notes:""},
+  {id:210,name:"Dried beans",category:"Dry Goods",quantity:1,unit:"kg",lowStock:false,notes:""},
+  {id:211,name:"Couscous",category:"Dry Goods",quantity:500,unit:"g",lowStock:false,notes:""},
+  // Condiments
+  {id:301,name:"Tomato sauce (All Gold)",category:"Condiments",quantity:2,unit:"btl",lowStock:false,notes:""},
+  {id:302,name:"Worcestershire sauce",category:"Condiments",quantity:1,unit:"btl",lowStock:false,notes:""},
+  {id:303,name:"Soy sauce",category:"Condiments",quantity:1,unit:"btl",lowStock:false,notes:""},
+  {id:304,name:"Mayonnaise",category:"Condiments",quantity:1,unit:"jar",lowStock:false,notes:""},
+  {id:305,name:"Mrs Balls chutney",category:"Condiments",quantity:1,unit:"jar",lowStock:false,notes:"SA staple"},
+  {id:306,name:"Steers chilli sauce",category:"Condiments",quantity:1,unit:"btl",lowStock:false,notes:""},
+  {id:307,name:"Vinegar",category:"Condiments",quantity:1,unit:"btl",lowStock:false,notes:""},
+  {id:308,name:"Olive oil",category:"Condiments",quantity:1,unit:"btl",lowStock:false,notes:""},
+  {id:309,name:"Sunflower oil",category:"Condiments",quantity:2,unit:"L",lowStock:false,notes:""},
+  {id:310,name:"Beef stock cubes",category:"Condiments",quantity:1,unit:"box",lowStock:false,notes:""},
+  {id:311,name:"Chicken stock cubes",category:"Condiments",quantity:1,unit:"box",lowStock:false,notes:""},
+  // Baking
+  {id:401,name:"Sugar",category:"Baking",quantity:2,unit:"kg",lowStock:false,notes:""},
+  {id:402,name:"Brown sugar",category:"Baking",quantity:1,unit:"kg",lowStock:false,notes:""},
+  {id:403,name:"Icing sugar",category:"Baking",quantity:500,unit:"g",lowStock:false,notes:""},
+  {id:404,name:"Baking powder",category:"Baking",quantity:1,unit:"tin",lowStock:false,notes:""},
+  {id:405,name:"Bicarbonate of soda",category:"Baking",quantity:1,unit:"pkt",lowStock:false,notes:""},
+  {id:406,name:"Cocoa powder",category:"Baking",quantity:1,unit:"tin",lowStock:false,notes:""},
+  {id:407,name:"Vanilla essence",category:"Baking",quantity:1,unit:"btl",lowStock:false,notes:""},
+  {id:408,name:"Desiccated coconut",category:"Baking",quantity:200,unit:"g",lowStock:false,notes:""},
+  {id:409,name:"Condensed milk",category:"Baking",quantity:2,unit:"tins",lowStock:false,notes:""},
+  // Spices
+  {id:501,name:"Salt",category:"Spices",quantity:1,unit:"kg",lowStock:false,notes:""},
+  {id:502,name:"Black pepper",category:"Spices",quantity:1,unit:"grinder",lowStock:false,notes:""},
+  {id:503,name:"Rajah curry powder (mild)",category:"Spices",quantity:1,unit:"tin",lowStock:false,notes:"SA favourite"},
+  {id:504,name:"Rajah curry powder (hot)",category:"Spices",quantity:1,unit:"tin",lowStock:false,notes:""},
+  {id:505,name:"Paprika",category:"Spices",quantity:1,unit:"tin",lowStock:false,notes:""},
+  {id:506,name:"Cumin",category:"Spices",quantity:1,unit:"tin",lowStock:false,notes:""},
+  {id:507,name:"Coriander (ground)",category:"Spices",quantity:1,unit:"tin",lowStock:false,notes:""},
+  {id:508,name:"Turmeric",category:"Spices",quantity:1,unit:"tin",lowStock:false,notes:""},
+  {id:509,name:"Garlic flakes",category:"Spices",quantity:1,unit:"tin",lowStock:false,notes:""},
+  {id:510,name:"Braai spice",category:"Spices",quantity:1,unit:"tin",lowStock:false,notes:""},
+  {id:511,name:"Mixed herbs",category:"Spices",quantity:1,unit:"tin",lowStock:false,notes:""},
+  {id:512,name:"Chilli flakes",category:"Spices",quantity:1,unit:"tin",lowStock:false,notes:""},
+  {id:513,name:"Cinnamon (ground)",category:"Spices",quantity:1,unit:"tin",lowStock:false,notes:""},
+  // Drinks
+  {id:601,name:"Rooibos tea",category:"Drinks",quantity:1,unit:"box",lowStock:false,notes:""},
+  {id:602,name:"Five Roses tea",category:"Drinks",quantity:1,unit:"box",lowStock:false,notes:""},
+  {id:603,name:"Nescafe coffee",category:"Drinks",quantity:1,unit:"jar",lowStock:false,notes:""},
+  {id:604,name:"Milo",category:"Drinks",quantity:1,unit:"tin",lowStock:false,notes:""},
+  {id:605,name:"Hot chocolate",category:"Drinks",quantity:1,unit:"tin",lowStock:false,notes:""},
+  {id:606,name:"Long life milk",category:"Drinks",quantity:6,unit:"L",lowStock:false,notes:""},
+  {id:607,name:"Cremora",category:"Drinks",quantity:1,unit:"tin",lowStock:false,notes:""},
+  // Snacks
+  {id:701,name:"Simba chips",category:"Snacks",quantity:2,unit:"pkt",lowStock:false,notes:""},
+  {id:702,name:"Provitas",category:"Snacks",quantity:1,unit:"box",lowStock:false,notes:""},
+  {id:703,name:"Salticrax",category:"Snacks",quantity:1,unit:"box",lowStock:false,notes:""},
+  {id:704,name:"Eet-sum-mor biscuits",category:"Snacks",quantity:1,unit:"pkt",lowStock:false,notes:""},
+  {id:705,name:"Rusks (Ouma)",category:"Snacks",quantity:1,unit:"pkt",lowStock:false,notes:""},
+  {id:706,name:"Mixed nuts",category:"Snacks",quantity:200,unit:"g",lowStock:false,notes:""},
+  // Cleaning
+  {id:801,name:"Handy Andy",category:"Cleaning",quantity:2,unit:"btl",lowStock:false,notes:""},
+  {id:802,name:"Sunlight dish soap",category:"Cleaning",quantity:2,unit:"btl",lowStock:false,notes:""},
+  {id:803,name:"Domestos bleach",category:"Cleaning",quantity:1,unit:"btl",lowStock:false,notes:""},
+  {id:804,name:"Jik bleach",category:"Cleaning",quantity:1,unit:"btl",lowStock:false,notes:""},
+  {id:805,name:"Surf washing powder",category:"Cleaning",quantity:1,unit:"box",lowStock:false,notes:""},
+  {id:806,name:"Comfort fabric softener",category:"Cleaning",quantity:1,unit:"btl",lowStock:false,notes:""},
+  {id:807,name:"Mr Min furniture polish",category:"Cleaning",quantity:1,unit:"tin",lowStock:false,notes:""},
+  {id:808,name:"Pledge spray",category:"Cleaning",quantity:1,unit:"btl",lowStock:false,notes:""},
+  {id:809,name:"Toilet cleaner (Harpic)",category:"Cleaning",quantity:2,unit:"btl",lowStock:false,notes:""},
+  {id:810,name:"Floor cleaner (Pine Sol)",category:"Cleaning",quantity:1,unit:"btl",lowStock:false,notes:""},
+  {id:811,name:"Glass cleaner (Windolene)",category:"Cleaning",quantity:1,unit:"btl",lowStock:false,notes:""},
+  {id:812,name:"Dishwasher tablets",category:"Cleaning",quantity:1,unit:"box",lowStock:false,notes:""},
+  {id:813,name:"Garbage bags",category:"Cleaning",quantity:1,unit:"roll",lowStock:false,notes:""},
+  {id:814,name:"Sponge scourers",category:"Cleaning",quantity:4,unit:"",lowStock:false,notes:""},
+  {id:815,name:"Paper towels",category:"Cleaning",quantity:2,unit:"rolls",lowStock:false,notes:""},
+  // Other (personal care & household)
+  {id:901,name:"Toilet paper",category:"Other",quantity:12,unit:"rolls",lowStock:false,notes:""},
+  {id:902,name:"Tissues (Kleenex)",category:"Other",quantity:3,unit:"boxes",lowStock:false,notes:""},
+  {id:903,name:"Foil (aluminium)",category:"Other",quantity:1,unit:"roll",lowStock:false,notes:""},
+  {id:904,name:"Cling wrap",category:"Other",quantity:1,unit:"roll",lowStock:false,notes:""},
+  {id:905,name:"Ziplock bags",category:"Other",quantity:1,unit:"box",lowStock:false,notes:""},
+  {id:906,name:"Candles",category:"Other",quantity:6,unit:"",lowStock:false,notes:"Load shedding"},
+  {id:907,name:"Matches",category:"Other",quantity:2,unit:"boxes",lowStock:false,notes:""},
+];
+
+const seedProjects=[
+  {id:1,title:"Repaint garden fence",category:"home-improvement",status:"in-progress",priority:"medium",notes:"Need to buy wood primer first",steps:[
+    {id:1,text:"Buy primer and paint",done:true},{id:2,text:"Sand down rough areas",done:false},
+    {id:3,text:"Apply primer coat",done:false},{id:4,text:"Apply two top coats",done:false},
+  ]},
+  {id:2,title:"Build raised veggie bed",category:"garden",status:"planning",priority:"low",notes:"Timber lengths: 4x 2.4m, 4x 1.2m",steps:[
+    {id:1,text:"Buy timber and screws",done:false},{id:2,text:"Mark out area",done:false},
+    {id:3,text:"Assemble frame",done:false},{id:4,text:"Fill with soil",done:false},
+  ]},
+];
+
+// ── Constants ───────────────────────────────────────────────────────────────
+const CAT_ICONS={cleaning:"🧹",laundry:"👕",garden:"🌱",maintenance:"🔧","home-improvement":"🏠",hobby:"🎨",health:"🏥",social:"👥",breakfast:"☀️",lunch:"🥗",dinner:"🍽️",snack:"🍎",drink:"☕",other:"📌"};
+const DAYS=["Sunday","Monday","Tuesday","Wednesday","Thursday","Friday","Saturday"];
+const MONTHS=["January","February","March","April","May","June","July","August","September","October","November","December"];
+const TASK_CATS=["cleaning","laundry","garden","maintenance","home-improvement","hobby","health","social","other"];
+const APPT_CATS=["health","social","home-improvement","garden","other"];
+const RECIPE_CATS=["breakfast","lunch","dinner","snack","baking","other"];
+const FOOD_CATS=["breakfast","lunch","dinner","snack","drink","other"];
+const PROJ_CATS=["home-improvement","garden","hobby","maintenance","other"];
+const PROJ_STATUS=["planning","in-progress","on-hold","completed"];
+const GROCERY_CATS=["Produce","Meat & Fish","Dairy & Eggs","Bakery","Pantry","Frozen","Drinks","Cleaning","Personal Care","Other"];
+const AISLE_ICONS={"Produce":"🥦","Meat & Fish":"🥩","Dairy & Eggs":"🥛","Bakery":"🍞","Pantry":"🥫","Frozen":"🧊","Drinks":"🥤","Cleaning":"🧽","Personal Care":"🧴","Other":"📦"};
+const PANTRY_CATS=["Tins & Jars","Dry Goods","Condiments","Baking","Spices","Drinks","Snacks","Cleaning","Other"];
+const PANTRY_CAT_ICONS={"Tins & Jars":"🥫","Dry Goods":"🌾","Condiments":"🍯","Baking":"🧁","Spices":"🌶️","Drinks":"☕","Snacks":"🍪","Cleaning":"🧽","Other":"📦"};
+
+function todayStr(){return new Date().toISOString().slice(0,10)}
+function fmtDate(d){if(!d)return"";const dt=new Date(d+"T12:00:00");return`${DAYS[dt.getDay()]} ${dt.getDate()} ${MONTHS[dt.getMonth()]}`}
+function daysUntil(d){const n=new Date();n.setHours(0,0,0,0);const dt=new Date(d+"T00:00:00");dt.setHours(0,0,0,0);return Math.round((dt-n)/86400000)}
+
+// ── App ─────────────────────────────────────────────────────────────────────
+function App(){
+  const SEED={tasks:seedTasks,appointments:seedAppointments,meals:{},recipes:seedRecipes,foods:seedFoods,projects:seedProjects,grocery:[],pantry:seedPantry,calorieGoal:2000};
+  const[tab,setTab]=useState("dashboard");
+  const[data,setDataRaw]=useState(null);
+  const[user,setUser]=useState(undefined);
+  const[syncStatus,setSyncStatus]=useState("guest");
+  const[showBanner,setShowBanner]=useState(true);
+  const[showNudge,setShowNudge]=useState(false);
+  const[showAuth,setShowAuth]=useState(false);
+  const skipSave=useRef(false);
+  const unsubData=useRef(null);
+  const nudgeT=useRef(null);
+
+  useEffect(()=>{
+    function startAuth(){
+      if(!window._fbConfigured){
+        setUser(null);setSyncStatus("local");
+        const saved=lloadAll();
+        setDataRaw(saved?{...SEED,...saved}:{...SEED});
+        return;
+      }
+      const unsub=window._fbOnAuth(u=>{
+        setUser(u||null);
+        if(unsubData.current){unsubData.current();unsubData.current=null;}
+        if(nudgeT.current){clearTimeout(nudgeT.current);nudgeT.current=null;}
+        if(u){
+          const ref=window._fbDoc("users/"+u.uid+"/planner/data");
+          setSyncStatus("connecting");
+          const guestData=lloadAll();
+          unsubData.current=window._fbOnSnapshot(ref,snap=>{
+            skipSave.current=true;
+            if(!snap.exists()){
+              const init=guestData?{...SEED,...guestData}:{...SEED};
+              window._fbSetDoc(ref,init);setDataRaw(init);
+              if(guestData)localStorage.removeItem("lp-all");
+            } else {
+              setDataRaw({...SEED,...snap.data()});
+            }
+            setSyncStatus("synced");
+          },()=>setSyncStatus("error"));
+          setShowBanner(false);setShowNudge(false);
+        } else {
+          const saved=lloadAll();
+          setDataRaw(saved?{...SEED,...saved}:{...SEED});
+          setSyncStatus("guest");
+          nudgeT.current=setTimeout(()=>setShowNudge(true),10*60*1000);
+        }
+      });
+      return unsub;
+    }
+    let unsub;
+    if(window._fbOnAuth){unsub=startAuth();}
+    else{
+      window.addEventListener("fbReady",function(){unsub=startAuth();},{once:true});
+      setTimeout(()=>{if(!window._fbOnAuth){setUser(null);setSyncStatus("local");const saved=lloadAll();setDataRaw(saved?{...SEED,...saved}:{...SEED});}},3000);
+    }
+    return()=>{if(unsub)unsub();if(unsubData.current)unsubData.current();if(nudgeT.current)clearTimeout(nudgeT.current);};
+  },[]);
+
+  const setData=useCallback(updater=>{
+    setDataRaw(prev=>{
+      const next=typeof updater==="function"?updater(prev):updater;
+      if(skipSave.current){skipSave.current=false;return next;}
+      if(window._fbConfigured&&user){
+        setSyncStatus("saving");
+        const ref=window._fbDoc("users/"+user.uid+"/planner/data");
+        clearTimeout(window._lpt);
+        window._lpt=setTimeout(()=>window._fbSetDoc(ref,next).then(()=>setSyncStatus("synced")).catch(()=>setSyncStatus("error")),900);
+      } else {
+        try{localStorage.setItem("lp-all",JSON.stringify(next));}catch{}
+      }
+      return next;
+    });
+  },[user]);
+
+  const mk=f=>v=>setData(d=>{return {...d,[f]:typeof v==="function"?v(d[f]):v};});
+  const setTasks=mk("tasks"),setAppointments=mk("appointments"),setMeals=mk("meals");
+  const setRecipes=mk("recipes"),setFoods=mk("foods"),setProjects=mk("projects");
+  const setGrocery=mk("grocery"),setCalorieGoal=mk("calorieGoal"),setPantry=mk("pantry");
+
+  if(user===undefined||!data)return(
+    <div style={{display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",height:"100vh",background:"#F5F0E8",gap:16}}>
+      <div style={{fontSize:40}}>🌿</div>
+      <div style={{fontFamily:"'Lora',serif",fontSize:20,color:"#7B5C4A"}}>Loading your planner...</div>
+    </div>
+  );
+
+  const isGuest=window._fbConfigured&&!user;
+  const{tasks,appointments,meals,recipes,foods,projects,grocery,pantry,calorieGoal}=data;
+  const syncLabel={"synced":"🟢 Synced","saving":"💾 Saving...","guest":"👤 Guest","local":"💻 Local","connecting":"🔄 Connecting","error":"🔴 Offline"}[syncStatus]||"";
+
+  const tabs=[
+    {id:"dashboard",label:"Today",icon:"🌅"},
+    {id:"tasks",label:"Tasks",icon:"✅"},
+    {id:"appointments",label:"Diary",icon:"📅"},
+    {id:"meals",label:"Meals",icon:"🍽️"},
+    {id:"foods",label:"Foods",icon:"🥘"},
+    {id:"recipes",label:"Recipes",icon:"📖"},
+    {id:"grocery",label:"Groceries",icon:"🛒"},
+    {id:"projects",label:"Projects",icon:"🔨"},
+    {id:"pantry",label:"Pantry",icon:"🥫"},
+  ];
+
+  return(
+    <div style={{minHeight:"100vh",background:"#F5F0E8"}}>
+      <div style={{background:"#3A2E28",padding:"14px 20px",display:"flex",alignItems:"center",justifyContent:"space-between",gap:12}}>
+        <div>
+          <div style={{fontFamily:"'Lora',serif",fontSize:22,color:"#F5F0E8",fontWeight:600}}>My Life Planner</div>
+          <div style={{fontFamily:"'Source Sans 3',sans-serif",fontSize:12,color:"#B8A898",marginTop:2}}>{fmtDate(todayStr())}</div>
+        </div>
+        <div style={{display:"flex",alignItems:"center",gap:8,flexWrap:"wrap"}}>
+          <span style={{fontFamily:"'Source Sans 3',sans-serif",fontSize:11,color:syncStatus==="synced"?"#88B04B":syncStatus==="guest"?"#F4C97A":"#B8A898",background:"rgba(255,255,255,0.1)",borderRadius:20,padding:"3px 10px"}}>{syncLabel}</span>
+          {user&&<UserAvatar user={user}/>}
+          {isGuest&&window._fbConfigured&&<button onClick={()=>{localStorage.setItem("lp-visited","1");setShowAuth(true);}} style={{border:"none",borderRadius:20,padding:"6px 14px",background:"#F4C97A",color:"#3A2E28",fontFamily:"'Source Sans 3',sans-serif",fontWeight:700,fontSize:12,cursor:"pointer"}}>Sign in</button>}
+          <span style={{fontSize:22}}>🌿</span>
+        </div>
+      </div>
+      {isGuest&&window._fbConfigured&&showBanner&&(
+        <div style={{background:"#4A3A20",padding:"9px 16px",display:"flex",alignItems:"center",gap:10,flexWrap:"wrap"}}>
+          <span style={{fontFamily:"'Source Sans 3',sans-serif",fontSize:13,color:"#F0DEB0",flex:1}}>You are exploring as a <strong>guest</strong> — data saves on this device only. Sign up free to sync across all devices.</span>
+          <button onClick={()=>{localStorage.setItem("lp-visited","1");setShowAuth(true);}} style={{border:"none",borderRadius:8,padding:"5px 14px",background:"#F4C97A",color:"#3A2E28",fontFamily:"'Source Sans 3',sans-serif",fontWeight:700,fontSize:12,cursor:"pointer"}}>Sign up free</button>
+          <button onClick={()=>setShowBanner(false)} style={{border:"none",background:"none",color:"#B8A898",fontSize:16,cursor:"pointer",lineHeight:1}}>x</button>
+        </div>
+      )}
+      {showNudge&&isGuest&&<NudgeModal onSignUp={()=>{setShowAuth(true);setShowNudge(false);}} onDismiss={()=>setShowNudge(false)}/>}
+      {showAuth&&<AuthModal onClose={()=>setShowAuth(false)} startMode={localStorage.getItem("lp-visited")?"signin":"signup"}/>}
+      <div style={{background:"#2E2420",display:"flex",overflowX:"auto",padding:"0 8px"}}>
+        {tabs.map(t=>(
+          <button key={t.id} className="tab-btn" onClick={()=>setTab(t.id)} style={{
+            padding:"12px 14px",color:tab===t.id?"#F4C97A":"#B8A898",
+            borderBottom:tab===t.id?"2px solid #F4C97A":"2px solid transparent",
+            fontSize:13,fontFamily:"'Source Sans 3',sans-serif",fontWeight:600,whiteSpace:"nowrap",letterSpacing:"0.02em",
+          }}><span style={{marginRight:5}}>{t.icon}</span>{t.label}</button>
+        ))}
+      </div>
+      <div style={{padding:"20px 16px",maxWidth:900,margin:"0 auto"}}>
+        {tab==="dashboard"&&<Dashboard tasks={tasks} appointments={appointments} meals={meals} setTasks={setTasks} projects={projects} setTab={setTab} recipes={recipes} foods={foods} calorieGoal={calorieGoal}/>}
+        {tab==="tasks"&&<Tasks tasks={tasks} setTasks={setTasks}/>}
+        {tab==="appointments"&&<Appointments appointments={appointments} setAppointments={setAppointments}/>}
+        {tab==="meals"&&<MealPlanner meals={meals} setMeals={setMeals} recipes={recipes} foods={foods} calorieGoal={calorieGoal} setCalorieGoal={setCalorieGoal}/>}
+        {tab==="foods"&&<FoodDatabase foods={foods} setFoods={setFoods}/>}
+        {tab==="recipes"&&<Recipes recipes={recipes} setRecipes={setRecipes}/>}
+        {tab==="grocery"&&<GroceryList grocery={grocery} setGrocery={setGrocery} recipes={recipes} meals={meals}/>}
+        {tab==="projects"&&<Projects projects={projects} setProjects={setProjects}/>}
+        {tab==="pantry"&&<Pantry pantry={pantry} setPantry={setPantry} setTab={setTab} setGrocery={setGrocery} grocery={grocery}/>}
+      </div>
+    </div>
+  );
+}
+
+// ── Dashboard ───────────────────────────────────────────────────────────────
+function Dashboard({tasks,appointments,meals,setTasks,projects,setTab,recipes,foods,calorieGoal}){
+  const ts=todayStr();
+  const todayDay=DAYS[new Date().getDay()];
+  const todayMeals=meals[ts]||{};
+  const getCal=n=>{if(!n)return null;const nm=n.toLowerCase();const r=recipes.find(r=>r.name.toLowerCase()===nm);if(r?.calories)return r.calories;const f=foods.find(f=>f.name.toLowerCase()===nm);return f?.calories??null};
+  const todayCals=["breakfast","lunch","dinner"].reduce((s,sl)=>s+(getCal(todayMeals[sl])||0),0);
+  const hasAnyCals=["breakfast","lunch","dinner"].some(s=>getCal(todayMeals[s])!==null);
+  const todayTasks=tasks.filter(t=>t.recurrence==="daily"||(t.recurrence==="weekly"&&t.day===todayDay));
+  const upcomingAppts=appointments.filter(a=>daysUntil(a.date)>=0&&daysUntil(a.date)<=14).sort((a,b)=>a.date.localeCompare(b.date)).slice(0,4);
+  const activeProjects=projects.filter(p=>p.status!=="completed").slice(0,3);
+  return(
+    <div>
+      <h2 style={{fontFamily:"'Lora',serif",fontSize:26,marginBottom:6}}>Good day 🌞</h2>
+      <p style={{fontFamily:"'Source Sans 3',sans-serif",color:"#8A7A6A",marginBottom:20,fontSize:15}}>Here's your day at a glance.</p>
+
+      {/* Meals */}
+      <div className="card" style={{padding:"16px 20px",marginBottom:16,background:"linear-gradient(135deg,#FFF8EE,#FDF0DC)"}}>
+        <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:10}}>
+          <div style={{fontFamily:"'Source Sans 3',sans-serif",fontSize:12,color:"#B8926A",fontWeight:700,textTransform:"uppercase",letterSpacing:"0.08em"}}>Today's Meals</div>
+          {hasAnyCals&&<div style={{fontFamily:"'Source Sans 3',sans-serif",fontSize:13,color:"#7B5C4A",fontWeight:700}}>🔥 {todayCals} <span style={{color:"#B8A898",fontWeight:400}}>/ {calorieGoal} kcal</span></div>}
+        </div>
+        {hasAnyCals&&<div style={{marginBottom:12}}>
+          <div style={{background:"#EDE8E2",borderRadius:8,height:8,overflow:"hidden"}}>
+            <div style={{height:8,borderRadius:8,transition:"width 0.4s",background:todayCals>calorieGoal?"#D4524A":todayCals>calorieGoal*.85?"#C9874F":"#88B04B",width:`${Math.min(100,Math.round(todayCals/calorieGoal*100))}%`}}/>
+          </div>
+          <div style={{fontFamily:"'Source Sans 3',sans-serif",fontSize:11,color:"#B8A898",marginTop:3,textAlign:"right"}}>{Math.round(todayCals/calorieGoal*100)}% of daily goal</div>
+        </div>}
+        <div style={{display:"flex",gap:12,flexWrap:"wrap"}}>
+          {["breakfast","lunch","dinner"].map(m=>{const cal=getCal(todayMeals[m]);return(
+            <div key={m} style={{flex:1,minWidth:110,background:"#fff",borderRadius:10,padding:"10px 14px",boxShadow:"0 1px 4px rgba(0,0,0,.06)"}}>
+              <div style={{fontSize:18}}>{CAT_ICONS[m]}</div>
+              <div style={{fontSize:11,color:"#B8A898",fontFamily:"'Source Sans 3',sans-serif",fontWeight:700,textTransform:"uppercase",letterSpacing:"0.06em",marginTop:2}}>{m}</div>
+              <div style={{fontSize:14,fontFamily:"'Lora',serif",marginTop:3,color:todayMeals[m]?"#3A2E28":"#C4B8AC"}}>{todayMeals[m]||"Not planned"}</div>
+              {cal!==null&&<div style={{fontSize:11,color:"#C9874F",fontFamily:"'Source Sans 3',sans-serif",fontWeight:700,marginTop:3}}>🔥 {cal} kcal</div>}
+            </div>
+          )})}
+        </div>
+        <button className="btn btn-ghost" onClick={()=>setTab("meals")} style={{marginTop:12,fontSize:12,padding:"5px 12px"}}>Plan meals →</button>
+      </div>
+
+      <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:14,marginBottom:14}}>
+        {/* Tasks */}
+        <div className="card" style={{padding:"16px 20px"}}>
+          <div style={{fontFamily:"'Source Sans 3',sans-serif",fontSize:12,color:"#7B9EBF",fontWeight:700,textTransform:"uppercase",letterSpacing:"0.08em",marginBottom:10}}>
+            Today's Tasks <span style={{background:"#EDF3F9",color:"#5A80A0",borderRadius:10,padding:"1px 8px",fontSize:11}}>{todayTasks.length}</span>
+          </div>
+          {todayTasks.length===0&&<p style={{fontFamily:"'Source Sans 3',sans-serif",color:"#B8A898",fontSize:14}}>Nothing scheduled 🎉</p>}
+          {todayTasks.slice(0,5).map(t=>(
+            <div key={t.id} style={{display:"flex",alignItems:"center",gap:10,marginBottom:8,opacity:t.done?.45:1}}>
+              <input type="checkbox" checked={t.done} onChange={()=>setTasks(ts=>ts.map(x=>x.id===t.id?{...x,done:!x.done}:x))} style={{width:16,height:16,cursor:"pointer",accentColor:"#7B5C4A"}}/>
+              <span style={{fontFamily:"'Source Sans 3',sans-serif",fontSize:14,textDecoration:t.done?"line-through":"none",color:t.done?"#B8A898":"#3A2E28"}}>{CAT_ICONS[t.category]||"📌"} {t.title}</span>
+            </div>
+          ))}
+          <button className="btn btn-ghost" onClick={()=>setTab("tasks")} style={{marginTop:8,fontSize:12,padding:"5px 12px"}}>All tasks →</button>
+        </div>
+        {/* Appointments */}
+        <div className="card" style={{padding:"16px 20px"}}>
+          <div style={{fontFamily:"'Source Sans 3',sans-serif",fontSize:12,color:"#E07B7B",fontWeight:700,textTransform:"uppercase",letterSpacing:"0.08em",marginBottom:10}}>Upcoming</div>
+          {upcomingAppts.length===0&&<p style={{fontFamily:"'Source Sans 3',sans-serif",color:"#B8A898",fontSize:14}}>Nothing coming up</p>}
+          {upcomingAppts.map(a=>{const d=daysUntil(a.date);return(
+            <div key={a.id} style={{marginBottom:10,paddingBottom:10,borderBottom:"1px solid #F0EAE4"}}>
+              <div style={{fontFamily:"'Source Sans 3',sans-serif",fontWeight:600,fontSize:14}}>{a.title}</div>
+              <div style={{fontSize:12,color:d===0?"#D4524A":d<=3?"#C9874F":"#8A7A6A",fontFamily:"'Source Sans 3',sans-serif",marginTop:2}}>
+                {d===0?"Today":d===1?"Tomorrow":`In ${d} days`} · {a.time}
+              </div>
+            </div>
+          )})}
+          <button className="btn btn-ghost" onClick={()=>setTab("appointments")} style={{marginTop:4,fontSize:12,padding:"5px 12px"}}>Full diary →</button>
+        </div>
+      </div>
+
+      {/* Projects */}
+      <div className="card" style={{padding:"16px 20px"}}>
+        <div style={{fontFamily:"'Source Sans 3',sans-serif",fontSize:12,color:"#88B04B",fontWeight:700,textTransform:"uppercase",letterSpacing:"0.08em",marginBottom:10}}>Active Projects</div>
+        {activeProjects.length===0&&<p style={{fontFamily:"'Source Sans 3',sans-serif",color:"#B8A898",fontSize:14}}>No active projects</p>}
+        <div style={{display:"flex",flexWrap:"wrap",gap:12}}>
+          {activeProjects.map(p=>{const done=p.steps.filter(s=>s.done).length;const pct=p.steps.length?Math.round(done/p.steps.length*100):0;return(
+            <div key={p.id} style={{flex:1,minWidth:150,background:"#F9F6F2",borderRadius:10,padding:"12px 14px"}}>
+              <div style={{fontFamily:"'Lora',serif",fontSize:14,fontWeight:600,marginBottom:4}}>{CAT_ICONS[p.category]||"🔨"} {p.title}</div>
+              <div style={{background:"#E8E0D8",borderRadius:6,height:6,marginBottom:4}}><div style={{background:"#88B04B",width:`${pct}%`,height:6,borderRadius:6}}/></div>
+              <div style={{fontSize:12,fontFamily:"'Source Sans 3',sans-serif",color:"#8A7A6A"}}>{pct}% · {done}/{p.steps.length} steps</div>
+            </div>
+          )})}
+        </div>
+        <button className="btn btn-ghost" onClick={()=>setTab("projects")} style={{marginTop:12,fontSize:12,padding:"5px 12px"}}>All projects →</button>
+      </div>
+    </div>
+  );
+}
+
+// ── Tasks ───────────────────────────────────────────────────────────────────
+function Tasks({tasks,setTasks}){
+  const[showModal,setShowModal]=useState(false);
+  const[editing,setEditing]=useState(null);
+  const[filter,setFilter]=useState("all");
+  const[form,setForm]=useState({title:"",category:"cleaning",recurrence:"weekly",day:"Monday",priority:"medium",done:false});
+  const openNew=()=>{setEditing(null);setForm({title:"",category:"cleaning",recurrence:"weekly",day:"Monday",priority:"medium",done:false});setShowModal(true)};
+  const openEdit=t=>{setEditing(t.id);setForm({...t});setShowModal(true)};
+  const save=()=>{if(!form.title.trim())return;if(editing)setTasks(ts=>ts.map(t=>t.id===editing?{...form,id:editing}:t));else setTasks(ts=>[...ts,{...form,id:Date.now(),done:false}]);setShowModal(false)};
+  const del=id=>setTasks(ts=>ts.filter(t=>t.id!==id));
+  const toggle=id=>setTasks(ts=>ts.map(t=>t.id===id?{...t,done:!t.done}:t));
+  const filtered=filter==="all"?tasks:tasks.filter(t=>t.category===filter);
+  const cats=[...new Set(tasks.map(t=>t.category))];
+  return(
+    <div>
+      <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:16}}>
+        <h2 style={{fontFamily:"'Lora',serif",fontSize:22}}>Tasks & Chores</h2>
+        <button className="btn btn-primary" onClick={openNew}>+ Add Task</button>
+      </div>
+      <div style={{display:"flex",gap:8,marginBottom:16,flexWrap:"wrap"}}>
+        {["all",...cats].map(c=>(
+          <button key={c} onClick={()=>setFilter(c)} style={{border:"none",borderRadius:20,padding:"5px 14px",cursor:"pointer",fontSize:12,fontWeight:700,fontFamily:"'Source Sans 3',sans-serif",textTransform:"capitalize",background:filter===c?"#7B5C4A":"#EDE8E2",color:filter===c?"white":"#7A6A5A",transition:"all 0.18s"}}>
+            {CAT_ICONS[c]||"📌"} {c}
+          </button>
+        ))}
+      </div>
+      <div style={{display:"flex",flexDirection:"column",gap:8}}>
+        {filtered.map(t=>(
+          <div key={t.id} className="card" style={{padding:"14px 16px",display:"flex",alignItems:"center",gap:12,opacity:t.done?.55:1}}>
+            <input type="checkbox" checked={t.done} onChange={()=>toggle(t.id)} style={{width:18,height:18,cursor:"pointer",accentColor:"#7B5C4A",flexShrink:0}}/>
+            <div style={{flex:1}}>
+              <div style={{fontFamily:"'Source Sans 3',sans-serif",fontWeight:600,fontSize:15,textDecoration:t.done?"line-through":"none"}}>{CAT_ICONS[t.category]||"📌"} {t.title}</div>
+              <div style={{fontSize:12,color:"#8A7A6A",fontFamily:"'Source Sans 3',sans-serif",marginTop:2}}>
+                {t.recurrence==="weekly"?`Every ${t.day}`:t.recurrence==="daily"?"Daily":t.recurrence} · <span style={{color:t.priority==="high"?"#D4524A":t.priority==="low"?"#88B04B":"#C9874F",fontWeight:700}}>{t.priority} priority</span>
+              </div>
+            </div>
+            <div style={{display:"flex",gap:6}}>
+              <button className="btn btn-ghost" onClick={()=>openEdit(t)} style={{fontSize:12,padding:"4px 10px"}}>Edit</button>
+              <button className="btn btn-danger" onClick={()=>del(t.id)} style={{fontSize:12,padding:"4px 10px"}}>✕</button>
+            </div>
+          </div>
+        ))}
+        {filtered.length===0&&<div style={{fontFamily:"'Source Sans 3',sans-serif",color:"#B8A898",textAlign:"center",padding:"40px 0",fontSize:15}}>No tasks. Click + Add Task to start.</div>}
+      </div>
+      {showModal&&(
+        <div className="modal-overlay" onClick={e=>e.target===e.currentTarget&&setShowModal(false)}>
+          <div className="modal">
+            <h3 style={{fontFamily:"'Lora',serif",fontSize:20,marginBottom:20}}>{editing?"Edit":"New"} Task</h3>
+            <div className="form-row"><label>Task title</label><input value={form.title} onChange={e=>setForm(f=>({...f,title:e.target.value}))} style={{width:"100%"}} placeholder="e.g. Mop kitchen floor"/></div>
+            <div className="form-row"><label>Category</label><select value={form.category} onChange={e=>setForm(f=>({...f,category:e.target.value}))} style={{width:"100%"}}>{TASK_CATS.map(c=><option key={c} value={c}>{CAT_ICONS[c]} {c}</option>)}</select></div>
+            <div className="form-row"><label>Recurrence</label><select value={form.recurrence} onChange={e=>setForm(f=>({...f,recurrence:e.target.value}))} style={{width:"100%"}}>
+              <option value="once">Once / As needed</option><option value="daily">Daily</option><option value="weekly">Weekly</option><option value="fortnightly">Fortnightly</option><option value="monthly">Monthly</option>
+            </select></div>
+            {form.recurrence==="weekly"&&<div className="form-row"><label>Day of week</label><select value={form.day} onChange={e=>setForm(f=>({...f,day:e.target.value}))} style={{width:"100%"}}>{DAYS.map(d=><option key={d}>{d}</option>)}</select></div>}
+            <div className="form-row"><label>Priority</label><select value={form.priority} onChange={e=>setForm(f=>({...f,priority:e.target.value}))} style={{width:"100%"}}><option value="low">Low</option><option value="medium">Medium</option><option value="high">High</option></select></div>
+            <div style={{display:"flex",gap:10,justifyContent:"flex-end",marginTop:8}}>
+              <button className="btn btn-ghost" onClick={()=>setShowModal(false)}>Cancel</button>
+              <button className="btn btn-primary" onClick={save}>Save</button>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ── Appointments ────────────────────────────────────────────────────────────
+function Appointments({appointments,setAppointments}){
+  const[showModal,setShowModal]=useState(false);
+  const[editing,setEditing]=useState(null);
+  const[form,setForm]=useState({title:"",date:"",time:"09:00",category:"health",notes:""});
+  const openNew=()=>{setEditing(null);setForm({title:"",date:todayStr(),time:"09:00",category:"health",notes:""});setShowModal(true)};
+  const openEdit=a=>{setEditing(a.id);setForm({...a});setShowModal(true)};
+  const save=()=>{if(!form.title.trim()||!form.date)return;if(editing)setAppointments(as=>as.map(a=>a.id===editing?{...form,id:editing}:a));else setAppointments(as=>[...as,{...form,id:Date.now()}]);setShowModal(false)};
+  const del=id=>setAppointments(as=>as.filter(a=>a.id!==id));
+  const sorted=[...appointments].sort((a,b)=>a.date.localeCompare(b.date));
+  const upcoming=sorted.filter(a=>daysUntil(a.date)>=0);
+  const past=sorted.filter(a=>daysUntil(a.date)<0);
+  const Card=({a})=>{const d=daysUntil(a.date);return(
+    <div className="card" style={{padding:"14px 16px",display:"flex",gap:14,marginBottom:8}}>
+      <div style={{width:50,textAlign:"center",background:d===0?"#FFF3F3":d<=3?"#FFF8F0":"#F5F2EE",borderRadius:8,padding:"8px 4px",flexShrink:0}}>
+        <div style={{fontFamily:"'Source Sans 3',sans-serif",fontSize:11,color:"#8A7A6A",fontWeight:700}}>{a.date.slice(5,7)}/{a.date.slice(8,10)}</div>
+        <div style={{fontSize:20}}>{CAT_ICONS[a.category]||"📅"}</div>
+      </div>
+      <div style={{flex:1}}>
+        <div style={{fontFamily:"'Source Sans 3',sans-serif",fontWeight:600,fontSize:15}}>{a.title}</div>
+        <div style={{fontSize:12,color:d===0?"#D4524A":d===1?"#C9874F":"#8A7A6A",fontFamily:"'Source Sans 3',sans-serif",marginTop:2}}>
+          {d===0?"Today":d===1?"Tomorrow":d<0?`${Math.abs(d)} days ago`:`In ${d} days`} at {a.time}
+        </div>
+        {a.notes&&<div style={{fontSize:13,color:"#8A7A6A",fontFamily:"'Source Sans 3',sans-serif",marginTop:4,fontStyle:"italic"}}>{a.notes}</div>}
+      </div>
+      <div style={{display:"flex",gap:6,alignItems:"flex-start"}}>
+        <button className="btn btn-ghost" onClick={()=>openEdit(a)} style={{fontSize:12,padding:"4px 10px"}}>Edit</button>
+        <button className="btn btn-danger" onClick={()=>del(a.id)} style={{fontSize:12,padding:"4px 10px"}}>✕</button>
+      </div>
+    </div>
+  )};
+  return(
+    <div>
+      <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:16}}>
+        <h2 style={{fontFamily:"'Lora',serif",fontSize:22}}>Diary & Appointments</h2>
+        <button className="btn btn-primary" onClick={openNew}>+ Add</button>
+      </div>
+      {upcoming.length===0&&<p style={{fontFamily:"'Source Sans 3',sans-serif",color:"#B8A898",fontSize:15,marginBottom:20}}>No upcoming appointments.</p>}
+      {upcoming.map(a=><Card key={a.id} a={a}/>)}
+      {past.length>0&&<><h3 style={{fontFamily:"'Lora',serif",fontSize:16,color:"#B8A898",margin:"20px 0 10px"}}>Past</h3>{past.slice(-3).reverse().map(a=><Card key={a.id} a={a}/>)}</>}
+      {showModal&&(
+        <div className="modal-overlay" onClick={e=>e.target===e.currentTarget&&setShowModal(false)}>
+          <div className="modal">
+            <h3 style={{fontFamily:"'Lora',serif",fontSize:20,marginBottom:20}}>{editing?"Edit":"New"} Appointment</h3>
+            <div className="form-row"><label>Title</label><input value={form.title} onChange={e=>setForm(f=>({...f,title:e.target.value}))} style={{width:"100%"}} placeholder="e.g. Doctor's appointment"/></div>
+            <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12}}>
+              <div className="form-row"><label>Date</label><input type="date" value={form.date} onChange={e=>setForm(f=>({...f,date:e.target.value}))} style={{width:"100%"}}/></div>
+              <div className="form-row"><label>Time</label><input type="time" value={form.time} onChange={e=>setForm(f=>({...f,time:e.target.value}))} style={{width:"100%"}}/></div>
+            </div>
+            <div className="form-row"><label>Category</label><select value={form.category} onChange={e=>setForm(f=>({...f,category:e.target.value}))} style={{width:"100%"}}>{APPT_CATS.map(c=><option key={c} value={c}>{CAT_ICONS[c]} {c}</option>)}</select></div>
+            <div className="form-row"><label>Notes</label><textarea value={form.notes} onChange={e=>setForm(f=>({...f,notes:e.target.value}))} style={{width:"100%",minHeight:70}}/></div>
+            <div style={{display:"flex",gap:10,justifyContent:"flex-end"}}>
+              <button className="btn btn-ghost" onClick={()=>setShowModal(false)}>Cancel</button>
+              <button className="btn btn-primary" onClick={save}>Save</button>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ── Meal Planner ─────────────────────────────────────────────────────────────
+function MealPlanner({meals,setMeals,recipes,foods,calorieGoal,setCalorieGoal}){
+  const[weekStart,setWeekStart]=useState(()=>{const d=new Date();d.setHours(0,0,0,0);d.setDate(d.getDate()-d.getDay());return d});
+  const[editing,setEditing]=useState(null);
+  const[mealText,setMealText]=useState("");
+  const[showGoalEdit,setShowGoalEdit]=useState(false);
+  const[goalDraft,setGoalDraft]=useState(calorieGoal);
+  const ts=todayStr();
+  const weekDates=Array.from({length:7},(_,i)=>{const d=new Date(weekStart);d.setDate(d.getDate()+i);return d.toISOString().slice(0,10)});
+  const prevWeek=()=>{const d=new Date(weekStart);d.setDate(d.getDate()-7);setWeekStart(d)};
+  const nextWeek=()=>{const d=new Date(weekStart);d.setDate(d.getDate()+7);setWeekStart(d)};
+  const setMeal=(date,slot,val)=>setMeals(m=>({...m,[date]:{...(m[date]||{}),[slot]:val}}));
+  const getCal=n=>{if(!n)return null;const nm=n.toLowerCase();const r=recipes.find(r=>r.name.toLowerCase()===nm);if(r?.calories)return r.calories;const f=foods.find(f=>f.name.toLowerCase()===nm);return f?.calories??null};
+  const getSugg=(slot,text)=>{const t=text.toLowerCase();const rs=recipes.filter(r=>r.category===slot&&r.name.toLowerCase().includes(t)).map(r=>({name:r.name,calories:r.calories,type:"recipe"}));const fs=foods.filter(f=>f.category===slot&&f.name.toLowerCase().includes(t)).map(f=>({name:f.name,calories:f.calories,type:"food"}));const of=foods.filter(f=>f.category!==slot&&f.name.toLowerCase().includes(t)&&t.length>=2).map(f=>({name:f.name,calories:f.calories,type:"food"}));return[...rs,...fs,...of].slice(0,8)};
+  const dailyTotals=weekDates.map(d=>{const dm=meals[d]||{};let tot=0;let has=false;["breakfast","lunch","dinner"].forEach(sl=>{const c=getCal(dm[sl]);if(c!==null){tot+=c;has=true}});return has?tot:null});
+  const maxTot=Math.max(calorieGoal,...dailyTotals.filter(Boolean));
+  return(
+    <div>
+      <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:16,flexWrap:"wrap",gap:10}}>
+        <h2 style={{fontFamily:"'Lora',serif",fontSize:22}}>Meal Planner</h2>
+        <div style={{display:"flex",gap:8,alignItems:"center"}}>
+          <button className="btn btn-ghost" onClick={prevWeek} style={{padding:"6px 12px"}}>← Prev</button>
+          <span style={{fontFamily:"'Source Sans 3',sans-serif",fontSize:13,color:"#8A7A6A",fontWeight:600}}>{weekDates[0].slice(8)}/{weekDates[0].slice(5,7)} – {weekDates[6].slice(8)}/{weekDates[6].slice(5,7)}</span>
+          <button className="btn btn-ghost" onClick={nextWeek} style={{padding:"6px 12px"}}>Next →</button>
+        </div>
+      </div>
+
+      {/* Goal */}
+      <div className="card" style={{padding:"14px 18px",marginBottom:16,background:"linear-gradient(135deg,#FFF8EE,#FDF0DC)",display:"flex",alignItems:"center",gap:16,flexWrap:"wrap"}}>
+        <div style={{fontSize:24}}>🎯</div>
+        <div style={{flex:1}}>
+          <div style={{fontFamily:"'Source Sans 3',sans-serif",fontSize:12,color:"#B8926A",fontWeight:700,textTransform:"uppercase",letterSpacing:"0.07em"}}>Daily Calorie Goal</div>
+          {showGoalEdit?(
+            <div style={{display:"flex",gap:8,alignItems:"center",marginTop:4}}>
+              <input type="number" value={goalDraft} onChange={e=>setGoalDraft(+e.target.value)} style={{width:100,fontSize:15,padding:"4px 8px"}} min={500} max={5000} step={50}/>
+              <button className="btn btn-primary" style={{padding:"4px 12px",fontSize:13}} onClick={()=>{setCalorieGoal(goalDraft);setShowGoalEdit(false)}}>Save</button>
+              <button className="btn btn-ghost" style={{padding:"4px 12px",fontSize:13}} onClick={()=>setShowGoalEdit(false)}>Cancel</button>
+            </div>
+          ):(
+            <div style={{display:"flex",alignItems:"baseline",gap:8,marginTop:2}}>
+              <span style={{fontFamily:"'Lora',serif",fontSize:22,fontWeight:600,color:"#7B5C4A"}}>{calorieGoal.toLocaleString()}</span>
+              <span style={{fontFamily:"'Source Sans 3',sans-serif",fontSize:13,color:"#8A7A6A"}}>kcal / day</span>
+              <button onClick={()=>{setGoalDraft(calorieGoal);setShowGoalEdit(true)}} style={{border:"none",background:"none",cursor:"pointer",fontSize:12,color:"#B8A898",textDecoration:"underline",fontFamily:"'Source Sans 3',sans-serif"}}>change</button>
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* Weekly chart */}
+      {dailyTotals.some(t=>t!==null)&&(
+        <div className="card" style={{padding:"16px 18px",marginBottom:16}}>
+          <div style={{fontFamily:"'Source Sans 3',sans-serif",fontSize:12,color:"#B8A898",fontWeight:700,textTransform:"uppercase",letterSpacing:"0.07em",marginBottom:12}}>🔥 Weekly Calories</div>
+          <div style={{display:"flex",gap:6,alignItems:"flex-end",height:80}}>
+            {weekDates.map((d,i)=>{const tot=dailyTotals[i];const pct=tot!==null?Math.min(100,Math.round(tot/maxTot*100)):0;const over=tot>calorieGoal;const isT=d===ts;return(
+              <div key={d} style={{flex:1,display:"flex",flexDirection:"column",alignItems:"center",gap:4}}>
+                {tot!==null&&<div style={{fontFamily:"'Source Sans 3',sans-serif",fontSize:10,color:over?"#D4524A":"#8A7A6A",fontWeight:700}}>{tot>=1000?`${(tot/1000).toFixed(1)}k`:tot}</div>}
+                <div style={{width:"100%",display:"flex",alignItems:"flex-end",height:54,position:"relative"}}>
+                  <div style={{position:"absolute",bottom:`${Math.round(calorieGoal/maxTot*54)}px`,left:0,right:0,borderTop:"1.5px dashed #C9874F"}}/>
+                  <div style={{width:"100%",borderRadius:"4px 4px 0 0",height:tot!==null?`${pct}%`:4,background:tot===null?"#F0EAE4":over?"#D4524A":isT?"#7B5C4A":"#88B04B",minHeight:4}}/>
+                </div>
+                <div style={{fontFamily:"'Source Sans 3',sans-serif",fontSize:10,color:isT?"#7B5C4A":"#B8A898",fontWeight:isT?700:400}}>{DAYS[new Date(d+"T12:00:00").getDay()].slice(0,3)}</div>
+              </div>
+            )})}
+          </div>
+        </div>
+      )}
+
+      {/* Grid */}
+      <div style={{overflowX:"auto"}}>
+        <table style={{width:"100%",borderCollapse:"separate",borderSpacing:"6px 6px"}}>
+          <thead><tr>
+            <th style={{padding:"8px 12px",fontFamily:"'Source Sans 3',sans-serif",fontSize:12,color:"#B8A898",textAlign:"left",fontWeight:700,textTransform:"uppercase",letterSpacing:"0.06em",width:70}}>Meal</th>
+            {weekDates.map(d=>(
+              <th key={d} style={{padding:"6px 8px",textAlign:"center",fontFamily:"'Source Sans 3',sans-serif",fontSize:12,fontWeight:700,color:d===ts?"#7B5C4A":"#8A7A6A",background:d===ts?"#FFF3E8":"transparent",borderRadius:8}}>
+                <div style={{fontSize:10,textTransform:"uppercase",letterSpacing:"0.06em"}}>{DAYS[new Date(d+"T12:00:00").getDay()].slice(0,3)}</div>
+                <div style={{fontSize:15}}>{d.slice(8)}</div>
+              </th>
+            ))}
+          </tr></thead>
+          <tbody>
+            {["breakfast","lunch","dinner"].map(slot=>(
+              <tr key={slot}>
+                <td style={{padding:"8px 8px",fontFamily:"'Source Sans 3',sans-serif",fontSize:12,fontWeight:700,color:"#8A7A6A",textTransform:"capitalize",verticalAlign:"top"}}>{CAT_ICONS[slot]}<br/><span style={{fontSize:10}}>{slot}</span></td>
+                {weekDates.map(d=>{const val=(meals[d]||{})[slot]||"";const cal=getCal(val);return(
+                  <td key={d} onClick={()=>{setEditing({date:d,slot});setMealText(val)}} style={{background:"#fff",borderRadius:8,padding:"8px",verticalAlign:"top",cursor:"pointer",minWidth:85,border:editing?.date===d&&editing?.slot===slot?"2px solid #7B5C4A":"2px solid transparent",boxShadow:"0 1px 4px rgba(0,0,0,.05)"}}>
+                    {editing?.date===d&&editing?.slot===slot?(
+                      <div onClick={e=>e.stopPropagation()}>
+                        <input value={mealText} onChange={e=>setMealText(e.target.value)} style={{width:"100%",fontSize:12,padding:"4px 6px"}} onKeyDown={e=>{if(e.key==="Enter"){setMeal(d,slot,mealText);setEditing(null)}if(e.key==="Escape")setEditing(null)}} autoFocus/>
+                        <div style={{marginTop:4,maxHeight:120,overflowY:"auto"}}>
+                          {getSugg(slot,mealText).map((s,i)=>(
+                            <div key={i} onClick={()=>{setMeal(d,slot,s.name);setEditing(null)}} style={{fontSize:11,padding:"4px 6px",cursor:"pointer",background:"#F5F0E8",borderRadius:4,marginBottom:2,fontFamily:"'Source Sans 3',sans-serif",display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+                              <span>{s.type==="recipe"?"📖":"🥘"} {s.name}</span>
+                              {s.calories&&<span style={{color:"#C9874F",fontWeight:700,marginLeft:6}}>🔥{s.calories}</span>}
+                            </div>
+                          ))}
+                        </div>
+                        <button className="btn btn-primary" onClick={()=>{setMeal(d,slot,mealText);setEditing(null)}} style={{fontSize:11,padding:"3px 10px",marginTop:4}}>✓</button>
+                      </div>
+                    ):(
+                      <div>
+                        <div style={{fontFamily:"'Source Sans 3',sans-serif",fontSize:12,color:val?"#3A2E28":"#D4C9BC"}}>{val||"+ Add"}</div>
+                        {cal!==null&&<div style={{fontSize:10,color:"#C9874F",fontFamily:"'Source Sans 3',sans-serif",fontWeight:700,marginTop:2}}>🔥 {cal} kcal</div>}
+                      </div>
+                    )}
+                  </td>
+                )})}
+              </tr>
+            ))}
+            <tr>
+              <td style={{padding:"8px",fontFamily:"'Source Sans 3',sans-serif",fontSize:11,fontWeight:700,color:"#B8A898",textTransform:"uppercase"}}>Total</td>
+              {weekDates.map((d,i)=>{const tot=dailyTotals[i];const over=tot>calorieGoal;return(
+                <td key={d} style={{padding:"8px",textAlign:"center"}}>
+                  {tot!==null?(
+                    <div>
+                      <div style={{fontFamily:"'Source Sans 3',sans-serif",fontSize:13,fontWeight:700,color:over?"#D4524A":"#3A2E28"}}>{tot}</div>
+                      <div style={{fontFamily:"'Source Sans 3',sans-serif",fontSize:10,color:"#B8A898"}}>kcal</div>
+                      <div style={{background:"#EDE8E2",borderRadius:4,height:4,marginTop:3,overflow:"hidden"}}><div style={{height:4,borderRadius:4,background:over?"#D4524A":"#88B04B",width:`${Math.min(100,Math.round(tot/calorieGoal*100))}%`}}/></div>
+                    </div>
+                  ):<span style={{fontFamily:"'Source Sans 3',sans-serif",fontSize:11,color:"#D4C9BC"}}>—</span>}
+                </td>
+              )})}
+            </tr>
+          </tbody>
+        </table>
+      </div>
+      <p style={{fontFamily:"'Source Sans 3',sans-serif",fontSize:12,color:"#B8A898",marginTop:12}}>💡 Click any cell to edit. Calories show automatically for items in your Foods & Recipes.</p>
+    </div>
+  );
+}
+
+// ── Food Database ─────────────────────────────────────────────────────────────
+function FoodDatabase({foods,setFoods}){
+  const[showModal,setShowModal]=useState(false);
+  const[editing,setEditing]=useState(null);
+  const[search,setSearch]=useState("");
+  const[filterCat,setFilterCat]=useState("all");
+  const[form,setForm]=useState({name:"",category:"lunch",calories:"",notes:""});
+  const openNew=()=>{setEditing(null);setForm({name:"",category:"lunch",calories:"",notes:""});setShowModal(true)};
+  const openEdit=f=>{setEditing(f.id);setForm({...f,calories:f.calories||""});setShowModal(true)};
+  const saveFd=()=>{if(!form.name.trim())return;const e={...form,calories:form.calories?+form.calories:null};if(editing)setFoods(fs=>fs.map(f=>f.id===editing?{...e,id:editing}:f));else setFoods(fs=>[...fs,{...e,id:Date.now()}]);setShowModal(false)};
+  const del=id=>setFoods(fs=>fs.filter(f=>f.id!==id));
+  const filtered=foods.filter(f=>(filterCat==="all"||f.category===filterCat)&&f.name.toLowerCase().includes(search.toLowerCase()));
+  const cats=filterCat==="all"?[...new Set(filtered.map(f=>f.category))]:[filterCat];
+  return(
+    <div>
+      <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:6}}>
+        <h2 style={{fontFamily:"'Lora',serif",fontSize:22}}>Foods & Meals</h2>
+        <button className="btn btn-primary" onClick={openNew}>+ Add Food</button>
+      </div>
+      <p style={{fontFamily:"'Source Sans 3',sans-serif",fontSize:14,color:"#8A7A6A",marginBottom:16}}>Your personal database of everyday meals and snacks. These appear as suggestions when planning your meals.</p>
+      <div style={{display:"flex",gap:10,marginBottom:16,flexWrap:"wrap"}}>
+        <input value={search} onChange={e=>setSearch(e.target.value)} placeholder="🔍 Search foods…" style={{flex:1,minWidth:160}}/>
+        <select value={filterCat} onChange={e=>setFilterCat(e.target.value)} style={{width:150}}>
+          <option value="all">All categories</option>
+          {FOOD_CATS.map(c=><option key={c} value={c}>{CAT_ICONS[c]||"🍴"} {c}</option>)}
+        </select>
+      </div>
+      {cats.map(cat=>{const cf=filtered.filter(f=>f.category===cat);if(cf.length===0)return null;return(
+        <div key={cat} style={{marginBottom:20}}>
+          <div style={{fontFamily:"'Source Sans 3',sans-serif",fontSize:12,fontWeight:700,color:"#B8A898",textTransform:"uppercase",letterSpacing:"0.07em",marginBottom:8,display:"flex",alignItems:"center",gap:8}}>
+            <span>{CAT_ICONS[cat]||"🍴"}</span>{cat}<span style={{background:"#EDE8E2",color:"#8A7A6A",borderRadius:10,padding:"1px 8px",fontSize:11}}>{cf.length}</span>
+          </div>
+          <div style={{display:"flex",flexDirection:"column",gap:6}}>
+            {cf.map(f=>(
+              <div key={f.id} className="card" style={{padding:"12px 16px",display:"flex",alignItems:"center",gap:12}}>
+                <div style={{flex:1}}>
+                  <div style={{fontFamily:"'Source Sans 3',sans-serif",fontWeight:600,fontSize:15}}>{f.name}</div>
+                  {f.notes&&<div style={{fontSize:12,color:"#B8A898",fontFamily:"'Source Sans 3',sans-serif",marginTop:1,fontStyle:"italic"}}>{f.notes}</div>}
+                </div>
+                <div style={{textAlign:"right",flexShrink:0}}>
+                  {f.calories?<div style={{fontFamily:"'Source Sans 3',sans-serif",fontWeight:700,fontSize:15,color:"#C9874F"}}>🔥 {f.calories} <span style={{fontSize:11,fontWeight:400,color:"#B8A898"}}>kcal</span></div>:<div style={{fontSize:12,color:"#D4C9BC",fontFamily:"'Source Sans 3',sans-serif"}}>no cals</div>}
+                </div>
+                <div style={{display:"flex",gap:6,flexShrink:0}}>
+                  <button className="btn btn-ghost" onClick={()=>openEdit(f)} style={{fontSize:12,padding:"4px 10px"}}>Edit</button>
+                  <button className="btn btn-danger" onClick={()=>del(f.id)} style={{fontSize:12,padding:"4px 10px"}}>✕</button>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )})}
+      {filtered.length===0&&<div style={{textAlign:"center",padding:"50px 0",fontFamily:"'Source Sans 3',sans-serif",color:"#B8A898",fontSize:15}}><div style={{fontSize:40,marginBottom:12}}>🥘</div>No foods yet. Click + Add Food to start.</div>}
+      {foods.length>0&&<div style={{background:"#F0F7EC",border:"1px solid #C8E6B8",borderRadius:10,padding:"12px 16px",marginTop:8,fontFamily:"'Source Sans 3',sans-serif",fontSize:13,color:"#5A7A4A"}}>💡 <strong>Tip:</strong> When planning meals, tap any grid cell and start typing — foods appear as suggestions with calorie counts.</div>}
+      {showModal&&(
+        <div className="modal-overlay" onClick={e=>e.target===e.currentTarget&&setShowModal(false)}>
+          <div className="modal">
+            <h3 style={{fontFamily:"'Lora',serif",fontSize:20,marginBottom:6}}>{editing?"Edit Food":"Add Food / Meal"}</h3>
+            <p style={{fontFamily:"'Source Sans 3',sans-serif",fontSize:13,color:"#8A7A6A",marginBottom:20}}>Add anything you eat regularly — a sandwich, cereal, takeaway, snack, etc.</p>
+            <div className="form-row"><label>Name</label><input value={form.name} onChange={e=>setForm(f=>({...f,name:e.target.value}))} style={{width:"100%"}} placeholder="e.g. Porridge with honey"/></div>
+            <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12}}>
+              <div className="form-row"><label>Meal type</label><select value={form.category} onChange={e=>setForm(f=>({...f,category:e.target.value}))} style={{width:"100%"}}>{FOOD_CATS.map(c=><option key={c} value={c}>{CAT_ICONS[c]||"🍴"} {c}</option>)}</select></div>
+              <div className="form-row"><label>Calories (kcal)</label><input type="number" min="0" value={form.calories} onChange={e=>setForm(f=>({...f,calories:e.target.value}))} placeholder="e.g. 350" style={{width:"100%"}}/></div>
+            </div>
+            <div className="form-row"><label>Notes (optional)</label><input value={form.notes} onChange={e=>setForm(f=>({...f,notes:e.target.value}))} placeholder="e.g. 2 slices, small bowl" style={{width:"100%"}}/></div>
+            <div style={{display:"flex",gap:10,justifyContent:"flex-end",marginTop:4}}>
+              <button className="btn btn-ghost" onClick={()=>setShowModal(false)}>Cancel</button>
+              <button className="btn btn-primary" onClick={saveFd}>Save</button>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ── Recipes ───────────────────────────────────────────────────────────────────
+function Recipes({recipes,setRecipes}){
+  const[showModal,setShowModal]=useState(false);
+  const[editing,setEditing]=useState(null);
+  const[viewing,setViewing]=useState(null);
+  const[search,setSearch]=useState("");
+  const[filterCat,setFilterCat]=useState("all");
+  const[form,setForm]=useState({name:"",category:"dinner",servings:4,time:"",calories:"",ingredients:"",method:"",tags:""});
+  const openNew=()=>{setEditing(null);setForm({name:"",category:"dinner",servings:4,time:"",calories:"",ingredients:"",method:"",tags:""});setShowModal(true)};
+  const openEdit=r=>{setEditing(r.id);setForm({...r,calories:r.calories||"",tags:Array.isArray(r.tags)?r.tags.join(", "):r.tags||""});setShowModal(true)};
+  const save=()=>{if(!form.name.trim())return;const rec={...form,calories:form.calories?+form.calories:null,tags:form.tags.split(",").map(t=>t.trim()).filter(Boolean)};if(editing)setRecipes(rs=>rs.map(r=>r.id===editing?{...rec,id:editing}:r));else setRecipes(rs=>[...rs,{...rec,id:Date.now()}]);setShowModal(false)};
+  const del=id=>{setRecipes(rs=>rs.filter(r=>r.id!==id));if(viewing?.id===id)setViewing(null)};
+  const filtered=recipes.filter(r=>(filterCat==="all"||r.category===filterCat)&&(r.name.toLowerCase().includes(search.toLowerCase())||(r.tags||[]).some(t=>t.toLowerCase().includes(search.toLowerCase()))));
+  return(
+    <div>
+      <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:16}}>
+        <h2 style={{fontFamily:"'Lora',serif",fontSize:22}}>Recipe Book</h2>
+        <button className="btn btn-primary" onClick={openNew}>+ Add Recipe</button>
+      </div>
+      <div style={{display:"flex",gap:10,marginBottom:14,flexWrap:"wrap"}}>
+        <input value={search} onChange={e=>setSearch(e.target.value)} placeholder="🔍 Search recipes…" style={{flex:1,minWidth:160}}/>
+        <select value={filterCat} onChange={e=>setFilterCat(e.target.value)} style={{width:140}}>
+          <option value="all">All meals</option>
+          {RECIPE_CATS.map(c=><option key={c} value={c}>{CAT_ICONS[c]||"🍴"} {c}</option>)}
+        </select>
+      </div>
+      <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(200px,1fr))",gap:12}}>
+        {filtered.map(r=>(
+          <div key={r.id} className="card" style={{padding:16,cursor:"pointer",transition:"transform .15s,box-shadow .15s"}}
+            onMouseEnter={e=>{e.currentTarget.style.transform="translateY(-2px)";e.currentTarget.style.boxShadow="0 6px 20px rgba(0,0,0,.1)"}}
+            onMouseLeave={e=>{e.currentTarget.style.transform="none";e.currentTarget.style.boxShadow=""}}
+            onClick={()=>setViewing(r)}>
+            <div style={{fontSize:32,marginBottom:8,textAlign:"center"}}>{CAT_ICONS[r.category]||"🍴"}</div>
+            <div style={{fontFamily:"'Lora',serif",fontSize:16,fontWeight:600,textAlign:"center",marginBottom:6}}>{r.name}</div>
+            <div style={{textAlign:"center",fontSize:12,color:"#8A7A6A",fontFamily:"'Source Sans 3',sans-serif",marginBottom:8}}>{r.servings} serves · {r.time}{r.calories?` · 🔥 ${r.calories} kcal`:""}</div>
+            <div style={{textAlign:"center"}}>{(r.tags||[]).map(t=><span key={t} className="tag" style={{background:"#F5F0E8",color:"#7A6A5A"}}>{t}</span>)}</div>
+          </div>
+        ))}
+        {filtered.length===0&&<div style={{gridColumn:"1/-1",textAlign:"center",padding:"40px 0",fontFamily:"'Source Sans 3',sans-serif",color:"#B8A898",fontSize:15}}>No recipes found.</div>}
+      </div>
+      {viewing&&(
+        <div className="modal-overlay" onClick={e=>e.target===e.currentTarget&&setViewing(null)}>
+          <div className="modal" style={{maxWidth:600}}>
+            <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:16}}>
+              <div>
+                <div style={{fontSize:36}}>{CAT_ICONS[viewing.category]||"🍴"}</div>
+                <h3 style={{fontFamily:"'Lora',serif",fontSize:24,marginTop:4}}>{viewing.name}</h3>
+                <div style={{fontFamily:"'Source Sans 3',sans-serif",fontSize:13,color:"#8A7A6A",marginTop:2}}>
+                  {viewing.servings} servings · {viewing.time}{viewing.calories&&<span style={{color:"#C9874F",fontWeight:700,marginLeft:8}}>🔥 {viewing.calories} kcal per serving</span>}
+                </div>
+              </div>
+              <div style={{display:"flex",gap:8}}>
+                <button className="btn btn-ghost" onClick={()=>{openEdit(viewing);setViewing(null)}} style={{fontSize:12,padding:"5px 12px"}}>Edit</button>
+                <button className="btn btn-danger" onClick={()=>del(viewing.id)} style={{fontSize:12,padding:"5px 12px"}}>Delete</button>
+              </div>
+            </div>
+            <div style={{marginBottom:16}}>
+              <div style={{fontFamily:"'Source Sans 3',sans-serif",fontSize:12,color:"#B8A898",fontWeight:700,textTransform:"uppercase",letterSpacing:"0.06em",marginBottom:6}}>Ingredients</div>
+              <div style={{fontFamily:"'Source Sans 3',sans-serif",fontSize:14,color:"#3A2E28",background:"#F9F6F2",borderRadius:8,padding:"12px 14px",whiteSpace:"pre-line"}}>{viewing.ingredients}</div>
+            </div>
+            <div>
+              <div style={{fontFamily:"'Source Sans 3',sans-serif",fontSize:12,color:"#B8A898",fontWeight:700,textTransform:"uppercase",letterSpacing:"0.06em",marginBottom:6}}>Method</div>
+              <div style={{fontFamily:"'Source Sans 3',sans-serif",fontSize:14,color:"#3A2E28",lineHeight:1.6}}>{viewing.method}</div>
+            </div>
+            <button className="btn btn-ghost" onClick={()=>setViewing(null)} style={{marginTop:20}}>Close</button>
+          </div>
+        </div>
+      )}
+      {showModal&&(
+        <div className="modal-overlay" onClick={e=>e.target===e.currentTarget&&setShowModal(false)}>
+          <div className="modal">
+            <h3 style={{fontFamily:"'Lora',serif",fontSize:20,marginBottom:20}}>{editing?"Edit":"New"} Recipe</h3>
+            <div className="form-row"><label>Recipe name</label><input value={form.name} onChange={e=>setForm(f=>({...f,name:e.target.value}))} style={{width:"100%"}}/></div>
+            <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr 1fr",gap:10}}>
+              <div className="form-row"><label>Category</label><select value={form.category} onChange={e=>setForm(f=>({...f,category:e.target.value}))} style={{width:"100%"}}>{RECIPE_CATS.map(c=><option key={c} value={c}>{c}</option>)}</select></div>
+              <div className="form-row"><label>Servings</label><input type="number" min="1" value={form.servings} onChange={e=>setForm(f=>({...f,servings:+e.target.value}))} style={{width:"100%"}}/></div>
+              <div className="form-row"><label>Time</label><input value={form.time} onChange={e=>setForm(f=>({...f,time:e.target.value}))} placeholder="45 min" style={{width:"100%"}}/></div>
+              <div className="form-row"><label>Cals/serve</label><input type="number" min="0" value={form.calories} onChange={e=>setForm(f=>({...f,calories:e.target.value}))} placeholder="450" style={{width:"100%"}}/></div>
+            </div>
+            <div className="form-row"><label>Ingredients</label><textarea value={form.ingredients} onChange={e=>setForm(f=>({...f,ingredients:e.target.value}))} style={{width:"100%",minHeight:80}} placeholder="One per line or comma-separated"/></div>
+            <div className="form-row"><label>Method</label><textarea value={form.method} onChange={e=>setForm(f=>({...f,method:e.target.value}))} style={{width:"100%",minHeight:100}}/></div>
+            <div className="form-row"><label>Tags (comma separated)</label><input value={form.tags} onChange={e=>setForm(f=>({...f,tags:e.target.value}))} placeholder="easy, winter, healthy" style={{width:"100%"}}/></div>
+            <div style={{display:"flex",gap:10,justifyContent:"flex-end"}}>
+              <button className="btn btn-ghost" onClick={()=>setShowModal(false)}>Cancel</button>
+              <button className="btn btn-primary" onClick={save}>Save</button>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ── Grocery List ──────────────────────────────────────────────────────────────
+function GroceryList({grocery,setGrocery,recipes,meals}){
+  const[showModal,setShowModal]=useState(false);
+  const[showRecipePicker,setShowRecipePicker]=useState(false);
+  const[filter,setFilter]=useState("all"); // all | pending | done
+  const[form,setForm]=useState({name:"",qty:"",unit:"",category:"Produce",notes:""});
+  const[quickText,setQuickText]=useState("");
+  const[search,setSearch]=useState("");
+
+  // Add a single item
+  const addItem=item=>{setGrocery(g=>[...g,{id:Date.now()+Math.random(),done:false,...item}])};
+
+  // Quick-add from the inline bar
+  const quickAdd=()=>{
+    if(!quickText.trim())return;
+    addItem({name:quickText.trim(),qty:"",unit:"",category:"Other",notes:""});
+    setQuickText("");
+  };
+
+  // Add from modal form
+  const saveItem=()=>{
+    if(!form.name.trim())return;
+    addItem({...form});
+    setForm({name:"",qty:"",unit:"",category:"Produce",notes:""});
+    setShowModal(false);
+  };
+
+  const toggle=id=>setGrocery(g=>g.map(i=>i.id===id?{...i,done:!i.done}:i));
+  const del=id=>setGrocery(g=>g.filter(i=>i.id!==id));
+  const clearDone=()=>setGrocery(g=>g.filter(i=>!i.done));
+  const clearAll=()=>{if(window.confirm("Clear entire list?"))setGrocery([])};
+
+  // Pull ingredients from a recipe and add as separate items
+  const addFromRecipe=recipe=>{
+    const raw=recipe.ingredients||"";
+    // Split on commas or newlines
+    const parts=raw.split(/,|\n/).map(s=>s.trim()).filter(Boolean);
+    const newItems=parts.map(p=>({
+      id:Date.now()+Math.random(),
+      name:p,qty:"",unit:"",
+      category:"Pantry",
+      notes:`From: ${recipe.name}`,
+      done:false,
+    }));
+    setGrocery(g=>[...g,...newItems]);
+    setShowRecipePicker(false);
+  };
+
+  // Pull ingredients from ALL recipes planned this week
+  const addFromWeekMeals=()=>{
+    const today=new Date();today.setHours(0,0,0,0);
+    const weekDates=Array.from({length:7},(_,i)=>{const d=new Date(today);d.setDate(d.getDate()-d.getDay()+i);return d.toISOString().slice(0,10)});
+    const mealNames=new Set();
+    weekDates.forEach(date=>{
+      const dm=meals[date]||{};
+      ["breakfast","lunch","dinner"].forEach(slot=>{if(dm[slot])mealNames.add(dm[slot].toLowerCase())});
+    });
+    const matchedRecipes=recipes.filter(r=>mealNames.has(r.name.toLowerCase()));
+    if(matchedRecipes.length===0){alert("No recipes found for this week's meal plan. Add meals to the planner first.");return}
+    matchedRecipes.forEach(r=>{
+      const parts=(r.ingredients||"").split(/,|\n/).map(s=>s.trim()).filter(Boolean);
+      parts.forEach(p=>addItem({name:p,qty:"",unit:"",category:"Pantry",notes:`From: ${r.name}`,done:false}));
+    });
+    setShowRecipePicker(false);
+  };
+
+  const pending=grocery.filter(i=>!i.done);
+  const done=grocery.filter(i=>i.done);
+  const displayed=filter==="pending"?pending:filter==="done"?done:grocery;
+  const searched=search?displayed.filter(i=>i.name.toLowerCase().includes(search.toLowerCase())):displayed;
+
+  // Group by category
+  const catOrder=GROCERY_CATS;
+  const groups=catOrder.reduce((acc,cat)=>{const items=searched.filter(i=>i.category===cat);if(items.length)acc.push({cat,items});return acc},[]);
+  const uncatItems=searched.filter(i=>!GROCERY_CATS.includes(i.category));
+  if(uncatItems.length)groups.push({cat:"Other",items:uncatItems});
+
+
+  return(
+    <div>
+      {/* Header */}
+      <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:6,flexWrap:"wrap",gap:10}}>
+        <div>
+          <h2 style={{fontFamily:"'Lora',serif",fontSize:22}}>Grocery List</h2>
+          <div style={{fontFamily:"'Source Sans 3',sans-serif",fontSize:13,color:"#8A7A6A",marginTop:2}}>
+            {pending.length} item{pending.length!==1?"s":""} remaining · {done.length} ticked off
+          </div>
+        </div>
+        <div style={{display:"flex",gap:8,flexWrap:"wrap"}}>
+          <button className="btn btn-ghost" onClick={()=>setShowRecipePicker(true)} style={{fontSize:13}}>📖 From Recipes</button>
+          <button className="btn btn-primary" onClick={()=>setShowModal(true)} style={{fontSize:13}}>+ Add Item</button>
+        </div>
+      </div>
+
+      {/* Quick-add bar */}
+      <div className="card" style={{padding:"12px 16px",marginBottom:14,display:"flex",gap:8}}>
+        <input value={quickText} onChange={e=>setQuickText(e.target.value)} placeholder="Quick add — type item and press Enter…"
+          style={{flex:1}} onKeyDown={e=>{if(e.key==="Enter")quickAdd()}}/>
+        <button className="btn btn-primary" onClick={quickAdd} style={{flexShrink:0,padding:"8px 16px"}}>Add</button>
+      </div>
+
+      {/* Filters & search */}
+      <div style={{display:"flex",gap:8,marginBottom:14,flexWrap:"wrap",alignItems:"center"}}>
+        {["all","pending","done"].map(f=>(
+          <button key={f} onClick={()=>setFilter(f)} style={{
+            border:"none",borderRadius:20,padding:"5px 14px",cursor:"pointer",fontSize:12,fontWeight:700,
+            fontFamily:"'Source Sans 3',sans-serif",textTransform:"capitalize",
+            background:filter===f?"#7B5C4A":"#EDE8E2",color:filter===f?"white":"#7A6A5A",transition:"all 0.18s"
+          }}>{f==="all"?"All":f==="pending"?`Remaining (${pending.length})`:`Ticked off (${done.length})`}</button>
+        ))}
+        <input value={search} onChange={e=>setSearch(e.target.value)} placeholder="🔍 Search…" style={{marginLeft:"auto",width:160,fontSize:13,padding:"6px 10px"}}/>
+      </div>
+
+      {/* List grouped by aisle */}
+      {groups.length===0&&(
+        <div style={{textAlign:"center",padding:"50px 0",fontFamily:"'Source Sans 3',sans-serif",color:"#B8A898",fontSize:15}}>
+          <div style={{fontSize:48,marginBottom:12}}>🛒</div>
+          {grocery.length===0?"Your list is empty. Use Quick Add or + Add Item to start.":"Nothing matches your filter."}
+        </div>
+      )}
+      {groups.map(({cat,items})=>(
+        <div key={cat} style={{marginBottom:20}}>
+          <div style={{fontFamily:"'Source Sans 3',sans-serif",fontSize:12,fontWeight:700,color:"#B8A898",textTransform:"uppercase",letterSpacing:"0.07em",marginBottom:8,display:"flex",alignItems:"center",gap:8}}>
+            <span style={{fontSize:16}}>{AISLE_ICONS[cat]||"📦"}</span>{cat}
+            <span style={{background:"#EDE8E2",color:"#8A7A6A",borderRadius:10,padding:"1px 8px",fontSize:11}}>{items.length}</span>
+          </div>
+          <div style={{display:"flex",flexDirection:"column",gap:6}}>
+            {items.map(item=>(
+              <div key={item.id} className="card" style={{padding:"12px 16px",display:"flex",alignItems:"center",gap:12,opacity:item.done?0.5:1,transition:"opacity 0.2s"}}>
+                <input type="checkbox" checked={item.done} onChange={()=>toggle(item.id)}
+                  style={{width:20,height:20,cursor:"pointer",accentColor:"#7B5C4A",flexShrink:0}}/>
+                <div style={{flex:1}}>
+                  <div style={{fontFamily:"'Source Sans 3',sans-serif",fontWeight:600,fontSize:15,textDecoration:item.done?"line-through":"none",color:item.done?"#B8A898":"#3A2E28"}}>
+                    {item.qty&&<span style={{color:"#C9874F",marginRight:6,fontWeight:700}}>{item.qty}{item.unit&&" "+item.unit}</span>}
+                    {item.name}
+                  </div>
+                  {item.notes&&<div style={{fontSize:12,color:"#B8A898",fontFamily:"'Source Sans 3',sans-serif",marginTop:1,fontStyle:"italic"}}>{item.notes}</div>}
+                </div>
+                <button onClick={()=>del(item.id)} style={{border:"none",background:"none",cursor:"pointer",fontSize:18,color:"#D4C9BC",padding:"0 4px",lineHeight:1}} title="Remove">✕</button>
+              </div>
+            ))}
+          </div>
+        </div>
+      ))}
+
+      {/* Bottom actions */}
+      {grocery.length>0&&(
+        <div style={{display:"flex",gap:10,marginTop:8,flexWrap:"wrap"}}>
+          {done.length>0&&<button className="btn btn-ghost" onClick={clearDone} style={{fontSize:13}}>🗑 Clear ticked ({done.length})</button>}
+          <button onClick={clearAll} style={{border:"none",background:"none",cursor:"pointer",fontSize:13,color:"#D4524A",fontFamily:"'Source Sans 3',sans-serif",fontWeight:600,textDecoration:"underline"}}>Clear entire list</button>
+        </div>
+      )}
+
+      {/* Add Item Modal */}
+      {showModal&&(
+        <div className="modal-overlay" onClick={e=>e.target===e.currentTarget&&setShowModal(false)}>
+          <div className="modal">
+            <h3 style={{fontFamily:"'Lora',serif",fontSize:20,marginBottom:20}}>Add Grocery Item</h3>
+            <div className="form-row"><label>Item name</label><input value={form.name} onChange={e=>setForm(f=>({...f,name:e.target.value}))} style={{width:"100%"}} placeholder="e.g. Free-range eggs" autoFocus/></div>
+            <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 2fr",gap:10}}>
+              <div className="form-row"><label>Qty</label><input value={form.qty} onChange={e=>setForm(f=>({...f,qty:e.target.value}))} style={{width:"100%"}} placeholder="2"/></div>
+              <div className="form-row"><label>Unit</label><input value={form.unit} onChange={e=>setForm(f=>({...f,unit:e.target.value}))} style={{width:"100%"}} placeholder="kg, L, pkt…"/></div>
+              <div className="form-row"><label>Aisle</label>
+                <select value={form.category} onChange={e=>setForm(f=>({...f,category:e.target.value}))} style={{width:"100%"}}>
+                  {GROCERY_CATS.map(c=><option key={c} value={c}>{AISLE_ICONS[c]||"📦"} {c}</option>)}
+                </select>
+              </div>
+            </div>
+            <div className="form-row"><label>Notes (optional)</label><input value={form.notes} onChange={e=>setForm(f=>({...f,notes:e.target.value}))} style={{width:"100%"}} placeholder="e.g. low-fat, from deli counter"/></div>
+            <div style={{display:"flex",gap:10,justifyContent:"flex-end"}}>
+              <button className="btn btn-ghost" onClick={()=>setShowModal(false)}>Cancel</button>
+              <button className="btn btn-primary" onClick={saveItem}>Add to List</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Recipe Picker Modal */}
+      {showRecipePicker&&(
+        <div className="modal-overlay" onClick={e=>e.target===e.currentTarget&&setShowRecipePicker(false)}>
+          <div className="modal" style={{maxWidth:560}}>
+            <h3 style={{fontFamily:"'Lora',serif",fontSize:20,marginBottom:6}}>Add from Recipes</h3>
+            <p style={{fontFamily:"'Source Sans 3',sans-serif",fontSize:13,color:"#8A7A6A",marginBottom:20}}>Choose a recipe to pull its ingredients onto your list, or import everything from this week's meal plan.</p>
+
+            {/* Import from week */}
+            <div style={{background:"#F0F7EC",border:"1px solid #C8E6B8",borderRadius:10,padding:"14px 16px",marginBottom:20,display:"flex",alignItems:"center",justifyContent:"space-between",gap:12,flexWrap:"wrap"}}>
+              <div>
+                <div style={{fontFamily:"'Source Sans 3',sans-serif",fontWeight:700,fontSize:14,color:"#4A7A3A"}}>📅 This week's meal plan</div>
+                <div style={{fontFamily:"'Source Sans 3',sans-serif",fontSize:12,color:"#6A9A5A",marginTop:2}}>Adds ingredients for all recipes planned this week</div>
+              </div>
+              <button className="btn btn-primary" onClick={addFromWeekMeals} style={{background:"#5A8A4A",flexShrink:0}}>Import all</button>
+            </div>
+
+            {/* Individual recipes */}
+            <div style={{fontFamily:"'Source Sans 3',sans-serif",fontSize:12,color:"#B8A898",fontWeight:700,textTransform:"uppercase",letterSpacing:"0.07em",marginBottom:10}}>Or pick a recipe</div>
+            <div style={{display:"flex",flexDirection:"column",gap:8,maxHeight:320,overflowY:"auto"}}>
+              {recipes.length===0&&<p style={{fontFamily:"'Source Sans 3',sans-serif",color:"#B8A898",fontSize:14}}>No recipes saved yet.</p>}
+              {recipes.map(r=>(
+                <div key={r.id} style={{display:"flex",alignItems:"center",gap:12,padding:"10px 14px",background:"#F9F6F2",borderRadius:10,cursor:"pointer"}}
+                  onClick={()=>addFromRecipe(r)}>
+                  <div style={{fontSize:24,flexShrink:0}}>{CAT_ICONS[r.category]||"🍴"}</div>
+                  <div style={{flex:1}}>
+                    <div style={{fontFamily:"'Source Sans 3',sans-serif",fontWeight:600,fontSize:14}}>{r.name}</div>
+                    <div style={{fontFamily:"'Source Sans 3',sans-serif",fontSize:12,color:"#8A7A6A",marginTop:1}}>
+                      {r.ingredients?(r.ingredients.split(/,|\n/).filter(Boolean).length+" ingredients"):"No ingredients listed"}
+                    </div>
+                  </div>
+                  <span style={{fontSize:13,color:"#7B5C4A",fontWeight:700,fontFamily:"'Source Sans 3',sans-serif"}}>+ Add →</span>
+                </div>
+              ))}
+            </div>
+            <button className="btn btn-ghost" onClick={()=>setShowRecipePicker(false)} style={{marginTop:20}}>Close</button>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ── Projects ──────────────────────────────────────────────────────────────────
+function Projects({projects,setProjects}){
+  const[showModal,setShowModal]=useState(false);
+  const[editing,setEditing]=useState(null);
+  const[expanded,setExpanded]=useState(null);
+  const[form,setForm]=useState({title:"",category:"home-improvement",status:"planning",priority:"medium",notes:"",steps:[]});
+  const[newStep,setNewStep]=useState("");
+  const statusColor={planning:"#7B9EBF","in-progress":"#C9874F","on-hold":"#9B7BB8",completed:"#88B04B"};
+  const openNew=()=>{setEditing(null);setForm({title:"",category:"home-improvement",status:"planning",priority:"medium",notes:"",steps:[]});setShowModal(true)};
+  const openEdit=p=>{setEditing(p.id);setForm({...p});setShowModal(true)};
+  const save=()=>{if(!form.title.trim())return;if(editing)setProjects(ps=>ps.map(p=>p.id===editing?{...form,id:editing}:p));else setProjects(ps=>[...ps,{...form,id:Date.now()}]);setShowModal(false)};
+  const del=id=>{setProjects(ps=>ps.filter(p=>p.id!==id));if(expanded===id)setExpanded(null)};
+  const toggleStep=(pid,sid)=>setProjects(ps=>ps.map(p=>p.id===pid?{...p,steps:p.steps.map(s=>s.id===sid?{...s,done:!s.done}:s)}:p));
+  const addStep=()=>{if(!newStep.trim())return;setForm(f=>({...f,steps:[...f.steps,{id:Date.now(),text:newStep,done:false}]}));setNewStep("")};
+  const remStep=id=>setForm(f=>({...f,steps:f.steps.filter(s=>s.id!==id)}));
+  return(
+    <div>
+      <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:16}}>
+        <h2 style={{fontFamily:"'Lora',serif",fontSize:22}}>Projects</h2>
+        <button className="btn btn-primary" onClick={openNew}>+ New Project</button>
+      </div>
+      <div style={{display:"flex",flexDirection:"column",gap:10}}>
+        {projects.map(p=>{const done=p.steps.filter(s=>s.done).length;const pct=p.steps.length?Math.round(done/p.steps.length*100):0;const isOpen=expanded===p.id;return(
+          <div key={p.id} className="card" style={{overflow:"hidden"}}>
+            <div style={{padding:"16px 18px",cursor:"pointer",display:"flex",gap:14,alignItems:"flex-start"}} onClick={()=>setExpanded(isOpen?null:p.id)}>
+              <div style={{fontSize:28,marginTop:2}}>{CAT_ICONS[p.category]||"🔨"}</div>
+              <div style={{flex:1}}>
+                <div style={{display:"flex",alignItems:"center",gap:10,flexWrap:"wrap"}}>
+                  <span style={{fontFamily:"'Lora',serif",fontSize:17,fontWeight:600}}>{p.title}</span>
+                  <span className="badge" style={{background:statusColor[p.status]+"22",color:statusColor[p.status]}}>{p.status}</span>
+                  <span style={{fontSize:11,color:p.priority==="high"?"#D4524A":p.priority==="low"?"#88B04B":"#C9874F",fontWeight:700,fontFamily:"'Source Sans 3',sans-serif"}}>{p.priority} priority</span>
+                </div>
+                {p.steps.length>0&&<>
+                  <div style={{background:"#EDE8E2",borderRadius:6,height:6,margin:"8px 0 4px",width:"min(300px,100%)"}}><div style={{background:statusColor[p.status],width:`${pct}%`,height:6,borderRadius:6}}/></div>
+                  <div style={{fontSize:12,fontFamily:"'Source Sans 3',sans-serif",color:"#8A7A6A"}}>{pct}% · {done}/{p.steps.length} steps</div>
+                </>}
+              </div>
+              <div style={{display:"flex",gap:6,flexShrink:0}}>
+                <button className="btn btn-ghost" onClick={e=>{e.stopPropagation();openEdit(p)}} style={{fontSize:12,padding:"4px 10px"}}>Edit</button>
+                <button className="btn btn-danger" onClick={e=>{e.stopPropagation();del(p.id)}} style={{fontSize:12,padding:"4px 10px"}}>✕</button>
+              </div>
+            </div>
+            {isOpen&&<div style={{borderTop:"1px solid #F0EAE4",padding:"14px 18px",background:"#FDFAF8"}}>
+              {p.notes&&<p style={{fontFamily:"'Source Sans 3',sans-serif",fontSize:13,color:"#8A7A6A",fontStyle:"italic",marginBottom:12}}>{p.notes}</p>}
+              {p.steps.length>0&&<div>
+                <div style={{fontFamily:"'Source Sans 3',sans-serif",fontSize:12,fontWeight:700,color:"#B8A898",textTransform:"uppercase",letterSpacing:"0.06em",marginBottom:8}}>Steps</div>
+                {p.steps.map(s=>(
+                  <div key={s.id} style={{display:"flex",alignItems:"center",gap:10,marginBottom:8,opacity:s.done?.5:1}}>
+                    <input type="checkbox" checked={s.done} onChange={()=>toggleStep(p.id,s.id)} style={{width:16,height:16,cursor:"pointer",accentColor:"#7B5C4A"}}/>
+                    <span style={{fontFamily:"'Source Sans 3',sans-serif",fontSize:14,textDecoration:s.done?"line-through":"none"}}>{s.text}</span>
+                  </div>
+                ))}
+              </div>}
+            </div>}
+          </div>
+        )})}
+        {projects.length===0&&<div style={{textAlign:"center",padding:"50px 0",fontFamily:"'Source Sans 3',sans-serif",color:"#B8A898",fontSize:15}}>No projects yet.</div>}
+      </div>
+      {showModal&&(
+        <div className="modal-overlay" onClick={e=>e.target===e.currentTarget&&setShowModal(false)}>
+          <div className="modal">
+            <h3 style={{fontFamily:"'Lora',serif",fontSize:20,marginBottom:20}}>{editing?"Edit":"New"} Project</h3>
+            <div className="form-row"><label>Project title</label><input value={form.title} onChange={e=>setForm(f=>({...f,title:e.target.value}))} style={{width:"100%"}}/></div>
+            <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10}}>
+              <div className="form-row"><label>Category</label><select value={form.category} onChange={e=>setForm(f=>({...f,category:e.target.value}))} style={{width:"100%"}}>{PROJ_CATS.map(c=><option key={c} value={c}>{CAT_ICONS[c]||"🔨"} {c}</option>)}</select></div>
+              <div className="form-row"><label>Status</label><select value={form.status} onChange={e=>setForm(f=>({...f,status:e.target.value}))} style={{width:"100%"}}>{PROJ_STATUS.map(s=><option key={s} value={s}>{s}</option>)}</select></div>
+            </div>
+            <div className="form-row"><label>Priority</label><select value={form.priority} onChange={e=>setForm(f=>({...f,priority:e.target.value}))} style={{width:"100%"}}><option value="low">Low</option><option value="medium">Medium</option><option value="high">High</option></select></div>
+            <div className="form-row"><label>Notes</label><textarea value={form.notes} onChange={e=>setForm(f=>({...f,notes:e.target.value}))} style={{width:"100%",minHeight:60}}/></div>
+            <div className="form-row">
+              <label>Steps</label>
+              {form.steps.map((s,i)=>(
+                <div key={s.id} style={{display:"flex",gap:8,marginBottom:6,alignItems:"center"}}>
+                  <span style={{fontFamily:"'Source Sans 3',sans-serif",fontSize:12,color:"#B8A898",width:20,flexShrink:0}}>{i+1}.</span>
+                  <span style={{flex:1,fontFamily:"'Source Sans 3',sans-serif",fontSize:13}}>{s.text}</span>
+                  <button className="btn btn-danger" onClick={()=>remStep(s.id)} style={{fontSize:11,padding:"2px 8px"}}>✕</button>
+                </div>
+              ))}
+              <div style={{display:"flex",gap:8,marginTop:4}}>
+                <input value={newStep} onChange={e=>setNewStep(e.target.value)} placeholder="Add a step…" style={{flex:1}} onKeyDown={e=>{if(e.key==="Enter")addStep()}}/>
+                <button className="btn btn-ghost" onClick={addStep} style={{flexShrink:0}}>+ Add</button>
+              </div>
+            </div>
+            <div style={{display:"flex",gap:10,justifyContent:"flex-end"}}>
+              <button className="btn btn-ghost" onClick={()=>setShowModal(false)}>Cancel</button>
+              <button className="btn btn-primary" onClick={save}>Save</button>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+
+// ── Pantry ───────────────────────────────────────────────────────────────────
+function Pantry({pantry,setPantry,setTab,setGrocery,grocery}){
+  const[showModal,setShowModal]=useState(false);
+  const[editing,setEditing]=useState(null);
+  const[search,setSearch]=useState("");
+  const[filterCat,setFilterCat]=useState("all");
+  const[showLowOnly,setShowLowOnly]=useState(false);
+  const[form,setForm]=useState({name:"",category:"Dry Goods",quantity:"",unit:"",lowStock:false,notes:""});
+  const openNew=()=>{setEditing(null);setForm({name:"",category:"Dry Goods",quantity:"",unit:"",lowStock:false,notes:""});setShowModal(true)};
+  const openEdit=p=>{setEditing(p.id);setForm({...p});setShowModal(true)};
+  const save=()=>{
+    if(!form.name.trim())return;
+    const item={...form,quantity:form.quantity!==""?+form.quantity:null};
+    if(editing)setPantry(ps=>ps.map(p=>p.id===editing?{...item,id:editing}:p));
+    else setPantry(ps=>[...ps,{...item,id:Date.now()}]);
+    setShowModal(false);
+  };
+  const del=id=>setPantry(ps=>ps.filter(p=>p.id!==id));
+  const toggleLow=id=>setPantry(ps=>ps.map(p=>p.id===id?{...p,lowStock:!p.lowStock}:p));
+  const addLowToGrocery=()=>{
+    const low=pantry.filter(p=>p.lowStock);
+    if(!low.length){alert("No items marked as low stock.");return}
+    setGrocery(g=>[...g,...low.map(p=>({id:Date.now()+Math.random(),name:p.name,qty:"",unit:p.unit||"",category:"Pantry",notes:"From pantry - low stock",done:false}))]);
+    setTab("grocery");
+  };
+  const filtered=pantry.filter(p=>(filterCat==="all"||p.category===filterCat)&&(!showLowOnly||p.lowStock)&&p.name.toLowerCase().includes(search.toLowerCase()));
+  const cats=filterCat==="all"?[...new Set(filtered.map(p=>p.category))]:[filterCat];
+  const lowCount=pantry.filter(p=>p.lowStock).length;
+  return(
+    <div>
+      <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:6,flexWrap:"wrap",gap:10}}>
+        <div>
+          <h2 style={{fontFamily:"'Lora',serif",fontSize:22}}>Pantry</h2>
+          <div style={{fontFamily:"'Source Sans 3',sans-serif",fontSize:13,color:"#8A7A6A",marginTop:2}}>
+            {pantry.length} items&nbsp;·&nbsp;{lowCount>0?<span style={{color:"#D4524A",fontWeight:700}}>&#9888; {lowCount} low stock</span>:<span style={{color:"#88B04B"}}>&#10003; All stocked</span>}
+          </div>
+        </div>
+        <div style={{display:"flex",gap:8,flexWrap:"wrap"}}>
+          {lowCount>0&&<button className="btn btn-ghost" onClick={addLowToGrocery} style={{fontSize:13,color:"#D4524A",borderColor:"#D4524A"}}>&#128722; Add low stock to grocery</button>}
+          <button className="btn btn-primary" onClick={openNew}>+ Add Item</button>
+        </div>
+      </div>
+      <div style={{display:"flex",gap:8,marginBottom:14,flexWrap:"wrap",alignItems:"center"}}>
+        <input value={search} onChange={e=>setSearch(e.target.value)} placeholder="Search pantry..." style={{flex:1,minWidth:150}}/>
+        <select value={filterCat} onChange={e=>setFilterCat(e.target.value)} style={{width:150}}>
+          <option value="all">All categories</option>
+          {PANTRY_CATS.map(c=><option key={c} value={c}>{PANTRY_CAT_ICONS[c]} {c}</option>)}
+        </select>
+        <button onClick={()=>setShowLowOnly(!showLowOnly)} style={{border:"none",borderRadius:20,padding:"5px 14px",cursor:"pointer",fontSize:12,fontWeight:700,fontFamily:"'Source Sans 3',sans-serif",background:showLowOnly?"#D4524A":"#EDE8E2",color:showLowOnly?"white":"#7A6A5A",transition:"all 0.18s"}}>Low stock only</button>
+      </div>
+      {filtered.length===0&&<div style={{textAlign:"center",padding:"50px 0",fontFamily:"'Source Sans 3',sans-serif",color:"#B8A898",fontSize:15}}><div style={{fontSize:48,marginBottom:12}}>&#128298;</div>{pantry.length===0?"Your pantry is empty. Click + Add Item to start.":"Nothing matches your filter."}</div>}
+      {cats.map(cat=>{
+        const items=filtered.filter(p=>p.category===cat);
+        if(!items.length)return null;
+        return(
+          <div key={cat} style={{marginBottom:20}}>
+            <div style={{fontFamily:"'Source Sans 3',sans-serif",fontSize:12,fontWeight:700,color:"#B8A898",textTransform:"uppercase",letterSpacing:"0.07em",marginBottom:8,display:"flex",alignItems:"center",gap:8}}>
+              <span style={{fontSize:16}}>{PANTRY_CAT_ICONS[cat]||"&#128230;"}</span>{cat}
+              <span style={{background:"#EDE8E2",color:"#8A7A6A",borderRadius:10,padding:"1px 8px",fontSize:11}}>{items.length}</span>
+            </div>
+            <div style={{display:"flex",flexDirection:"column",gap:6}}>
+              {items.map(p=>(
+                <div key={p.id} className="card" style={{padding:"12px 16px",display:"flex",alignItems:"center",gap:12,borderLeft:"3px solid "+(p.lowStock?"#D4524A":"#E8E0D8")}}>
+                  <button onClick={()=>toggleLow(p.id)} title={p.lowStock?"Mark as stocked":"Mark as low stock"} style={{border:"none",background:"none",cursor:"pointer",fontSize:20,flexShrink:0,opacity:p.lowStock?1:0.2,transition:"opacity 0.2s"}}>&#9888;</button>
+                  <div style={{flex:1}}>
+                    <div style={{fontFamily:"'Source Sans 3',sans-serif",fontWeight:600,fontSize:15,color:p.lowStock?"#D4524A":"#3A2E28"}}>{p.name}</div>
+                    <div style={{fontSize:12,fontFamily:"'Source Sans 3',sans-serif",color:"#8A7A6A",marginTop:2,display:"flex",gap:10,flexWrap:"wrap"}}>
+                      {p.quantity!==null&&p.quantity!==""&&<span>Qty: <strong>{p.quantity}{p.unit?" "+p.unit:""}</strong></span>}
+                      {p.lowStock&&<span style={{color:"#D4524A",fontWeight:700}}>Low stock</span>}
+                      {p.notes&&<span style={{fontStyle:"italic"}}>{p.notes}</span>}
+                    </div>
+                  </div>
+                  <div style={{display:"flex",gap:6,flexShrink:0}}>
+                    <button className="btn btn-ghost" onClick={()=>openEdit(p)} style={{fontSize:12,padding:"4px 10px"}}>Edit</button>
+                    <button className="btn btn-danger" onClick={()=>del(p.id)} style={{fontSize:12,padding:"4px 10px"}}>X</button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        );
+      })}
+      {pantry.length>0&&<div style={{background:"#FFF8E8",border:"1px solid #F4C97A",borderRadius:10,padding:"12px 16px",marginTop:8,fontFamily:"'Source Sans 3',sans-serif",fontSize:13,color:"#7B5C4A"}}>Tip: Tap the warning icon on any item to mark it low stock, then use "Add low stock to grocery" to send them all to your shopping list.</div>}
+      {showModal&&(
+        <div className="modal-overlay" onClick={e=>e.target===e.currentTarget&&setShowModal(false)}>
+          <div className="modal">
+            <h3 style={{fontFamily:"'Lora',serif",fontSize:20,marginBottom:20}}>{editing?"Edit":"Add"} Pantry Item</h3>
+            <div className="form-row"><label>Item name</label><input value={form.name} onChange={e=>setForm(f=>({...f,name:e.target.value}))} style={{width:"100%"}} placeholder="e.g. Basmati rice" autoFocus/></div>
+            <div style={{display:"grid",gridTemplateColumns:"2fr 1fr 1fr",gap:10}}>
+              <div className="form-row"><label>Category</label><select value={form.category} onChange={e=>setForm(f=>({...f,category:e.target.value}))} style={{width:"100%"}}>{PANTRY_CATS.map(c=><option key={c} value={c}>{PANTRY_CAT_ICONS[c]} {c}</option>)}</select></div>
+              <div className="form-row"><label>Quantity</label><input type="number" min="0" value={form.quantity} onChange={e=>setForm(f=>({...f,quantity:e.target.value}))} style={{width:"100%"}} placeholder="2"/></div>
+              <div className="form-row"><label>Unit</label><input value={form.unit} onChange={e=>setForm(f=>({...f,unit:e.target.value}))} style={{width:"100%"}} placeholder="kg, tins..."/></div>
+            </div>
+            <div className="form-row"><label>Notes (optional)</label><input value={form.notes} onChange={e=>setForm(f=>({...f,notes:e.target.value}))} style={{width:"100%"}} placeholder="e.g. brand, shelf"/></div>
+            <div style={{display:"flex",alignItems:"center",gap:10,marginBottom:16}}>
+              <input type="checkbox" id="lowStockCb" checked={form.lowStock} onChange={e=>setForm(f=>({...f,lowStock:e.target.checked}))} style={{width:18,height:18,accentColor:"#D4524A",cursor:"pointer"}}/>
+              <label htmlFor="lowStockCb" style={{textTransform:"none",letterSpacing:0,fontSize:14,color:"#D4524A",cursor:"pointer",marginBottom:0}}>Mark as low stock</label>
+            </div>
+            <div style={{display:"flex",gap:10,justifyContent:"flex-end"}}>
+              <button className="btn btn-ghost" onClick={()=>setShowModal(false)}>Cancel</button>
+              <button className="btn btn-primary" onClick={save}>Save</button>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+
+function UserAvatar({user}){
+  const[open,setOpen]=useState(false);
+  const initial=(user.displayName||user.email||"?")[0].toUpperCase();
+  return(
+    <div style={{position:"relative"}}>
+      <button onClick={()=>setOpen(!open)} style={{width:30,height:30,borderRadius:"50%",border:"2px solid #F4C97A",background:"#7B5C4A",color:"white",cursor:"pointer",fontFamily:"'Source Sans 3',sans-serif",fontWeight:700,fontSize:12,display:"flex",alignItems:"center",justifyContent:"center",overflow:"hidden",padding:0}}>
+        {user.photoURL?<img src={user.photoURL} style={{width:30,height:30,borderRadius:"50%"}} alt=""/>:initial}
+      </button>
+      {open&&(
+        <div style={{position:"absolute",right:0,top:36,background:"white",borderRadius:10,boxShadow:"0 4px 20px rgba(0,0,0,0.15)",padding:8,minWidth:190,zIndex:999}}>
+          <div style={{padding:"8px 12px",borderBottom:"1px solid #F0EAE4",marginBottom:4}}>
+            <div style={{fontFamily:"'Source Sans 3',sans-serif",fontWeight:700,fontSize:13}}>{user.displayName||"My Account"}</div>
+            <div style={{fontFamily:"'Source Sans 3',sans-serif",fontSize:11,color:"#B8A898"}}>{user.email}</div>
+          </div>
+          <button onClick={()=>{window._fbSignOut();setOpen(false);}} style={{width:"100%",padding:"8px 12px",border:"none",background:"none",cursor:"pointer",fontFamily:"'Source Sans 3',sans-serif",fontSize:13,color:"#D4524A",fontWeight:600,textAlign:"left",borderRadius:6}}>Sign out</button>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function NudgeModal({onSignUp,onDismiss}){
+  return(
+    <div style={{position:"fixed",inset:0,background:"rgba(58,46,40,0.6)",zIndex:200,display:"flex",alignItems:"center",justifyContent:"center",padding:16}}>
+      <div style={{background:"white",borderRadius:20,padding:32,maxWidth:400,width:"100%",textAlign:"center"}}>
+        <div style={{fontSize:44,marginBottom:10}}>🌿</div>
+        <h3 style={{fontFamily:"'Lora',serif",fontSize:20,marginBottom:10}}>Enjoying the planner?</h3>
+        <p style={{fontFamily:"'Source Sans 3',sans-serif",fontSize:14,color:"#8A7A6A",marginBottom:24}}>Sign up free to save your data to the cloud and access from any device. Your data carries over automatically.</p>
+        <button onClick={onSignUp} style={{width:"100%",padding:"12px",border:"none",borderRadius:10,background:"#7B5C4A",color:"white",fontFamily:"'Source Sans 3',sans-serif",fontWeight:700,fontSize:15,cursor:"pointer",marginBottom:10}}>Create free account</button>
+        <button onClick={onDismiss} style={{border:"none",background:"none",color:"#B8A898",fontFamily:"'Source Sans 3',sans-serif",fontSize:13,cursor:"pointer",textDecoration:"underline"}}>Maybe later</button>
+      </div>
+    </div>
+  );
+}
+
+function AuthModal({onClose,startMode}){
+  const[mode,setMode]=useState(startMode||"signup");
+  const[email,setEmail]=useState("");
+  const[pw,setPw]=useState("");
+  const[name,setName]=useState("");
+  const[err,setErr]=useState("");
+  const[busy,setBusy]=useState(false);
+
+  const google=async()=>{
+    setErr("");setBusy(true);
+    try{await window._fbSignInGoogle();onClose();}
+    catch(e){setErr("Google error: "+e.code+" — "+e.message);}
+    setBusy(false);
+  };
+
+  const submit=async()=>{
+    setErr("");
+    if(!email.trim()||!pw.trim()){setErr("Please enter email and password.");return;}
+    if(mode==="signup"&&!name.trim()){setErr("Please enter your name.");return;}
+    if(pw.length<6){setErr("Password must be at least 6 characters.");return;}
+    setBusy(true);
+    try{
+      if(mode==="signup") await window._fbSignUpEmail(email.trim(),pw,name.trim());
+      else await window._fbSignInEmail(email.trim(),pw);
+      onClose();
+    }catch(e){
+      const m={"auth/email-already-in-use":"That email is already registered.","auth/user-not-found":"No account with that email.","auth/wrong-password":"Incorrect password.","auth/invalid-email":"Invalid email address.","auth/invalid-credential":"Incorrect email or password.","auth/operation-not-allowed":"Email sign-in is not enabled. Please use Google sign-in.","auth/weak-password":"Password is too weak — use at least 6 characters.","auth/network-request-failed":"Network error — please check your connection.","auth/too-many-requests":"Too many attempts. Please wait a moment and try again."};
+      setErr(m[e.code]||("Error: "+e.code+" — "+e.message));
+    }
+    setBusy(false);
+  };
+
+  return(
+    <div style={{position:"fixed",inset:0,background:"rgba(58,46,40,0.6)",zIndex:200,display:"flex",alignItems:"center",justifyContent:"center",padding:16}} onClick={e=>e.target===e.currentTarget&&onClose()}>
+      <div style={{background:"white",borderRadius:20,padding:28,maxWidth:400,width:"100%",maxHeight:"90vh",overflowY:"auto"}}>
+        <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:18}}>
+          <h3 style={{fontFamily:"'Lora',serif",fontSize:20}}>{mode==="signup"?"Create free account":"Welcome back"}</h3>
+          <button onClick={onClose} style={{border:"none",background:"none",fontSize:20,cursor:"pointer",color:"#B8A898",lineHeight:1}}>x</button>
+        </div>
+        <button onClick={google} disabled={busy} style={{width:"100%",padding:"10px",border:"1.5px solid #D4C9BC",borderRadius:8,background:"white",cursor:"pointer",fontFamily:"'Source Sans 3',sans-serif",fontWeight:600,fontSize:14,marginBottom:14}}>
+          Continue with Google
+        </button>
+        <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:14}}>
+          <div style={{flex:1,height:1,background:"#E8E0D8"}}/>
+          <span style={{fontFamily:"'Source Sans 3',sans-serif",fontSize:12,color:"#B8A898"}}>or</span>
+          <div style={{flex:1,height:1,background:"#E8E0D8"}}/>
+        </div>
+        {mode==="signup"&&<div className="form-row"><label>Your name</label><input value={name} onChange={e=>setName(e.target.value)} style={{width:"100%"}} placeholder="e.g. Johan"/></div>}
+        <div className="form-row"><label>Email</label><input type="email" value={email} onChange={e=>setEmail(e.target.value)} style={{width:"100%"}} onKeyDown={e=>e.key==="Enter"&&submit()}/></div>
+        <div className="form-row"><label>Password</label><input type="password" value={pw} onChange={e=>setPw(e.target.value)} style={{width:"100%"}} placeholder={mode==="signup"?"At least 6 characters":""} onKeyDown={e=>e.key==="Enter"&&submit()}/></div>
+        {err&&<div style={{background:"#FFF0F0",border:"1px solid #FFCCC7",borderRadius:8,padding:"9px 12px",fontFamily:"'Source Sans 3',sans-serif",fontSize:13,color:"#D4524A",marginBottom:12}}>{err}</div>}
+        <button onClick={submit} disabled={busy} style={{width:"100%",padding:"11px",border:"none",borderRadius:10,background:"#7B5C4A",color:"white",fontFamily:"'Source Sans 3',sans-serif",fontWeight:700,fontSize:15,cursor:"pointer",marginBottom:12}}>
+          {busy?"Please wait...":(mode==="signup"?"Create Account":"Sign In")}
+        </button>
+        <div style={{textAlign:"center",fontFamily:"'Source Sans 3',sans-serif",fontSize:13,color:"#8A7A6A"}}>
+          {mode==="signin"
+            ?<span>No account? <button onClick={()=>{setMode("signup");setErr("");}} style={{border:"none",background:"none",color:"#7B5C4A",fontWeight:700,cursor:"pointer",fontFamily:"inherit",fontSize:"inherit"}}>Sign up free</button></span>
+            :<span>Have an account? <button onClick={()=>{setMode("signin");setErr("");}} style={{border:"none",background:"none",color:"#7B5C4A",fontWeight:700,cursor:"pointer",fontFamily:"inherit",fontSize:"inherit"}}>Sign in</button></span>}
+        </div>
+        <div style={{marginTop:14,padding:"9px 12px",background:"#F9F6F2",borderRadius:8,fontFamily:"'Source Sans 3',sans-serif",fontSize:11,color:"#B8A898",textAlign:"center"}}>Your data is private and only visible to you. Free forever.</div>
+      </div>
+    </div>
+  );
+}
+
+ReactDOM.createRoot(document.getElementById("root")).render(<App/>);
+</script>
+</body>
+</html>
