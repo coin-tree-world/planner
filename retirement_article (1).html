@@ -1,0 +1,386 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>What Shall I Do Today?</title>
+<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,700;0,900;1,400;1,700&family=EB+Garamond:ital,wght@0,400;0,500;1,400;1,500&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --ink: #1a1208;
+    --paper: #f5f0e8;
+    --aged: #e8dfc8;
+    --rust: #8b3a1a;
+    --gold: #b8860b;
+    --faded: #9a8e7a;
+    --rule: #c8b89a;
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    background-color: var(--aged);
+    background-image: 
+      url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='300' height='300'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.65' numOctaves='3' stitchTiles='stitch'/%3E%3CfeColorMatrix type='saturate' values='0'/%3E%3C/filter%3E%3Crect width='300' height='300' filter='url(%23noise)' opacity='0.04'/%3E%3C/svg%3E");
+    font-family: 'EB Garamond', serif;
+    color: var(--ink);
+    min-height: 100vh;
+    padding: 40px 20px 80px;
+  }
+
+  .newspaper {
+    max-width: 780px;
+    margin: 0 auto;
+    background: var(--paper);
+    border: 1px solid var(--rule);
+    box-shadow: 4px 4px 0 var(--rule), 8px 8px 0 rgba(0,0,0,0.08);
+    padding: 50px 60px 70px;
+    position: relative;
+  }
+
+  .newspaper::before {
+    content: '';
+    position: absolute;
+    inset: 8px;
+    border: 1px solid var(--rule);
+    pointer-events: none;
+  }
+
+  /* MASTHEAD */
+  .masthead {
+    text-align: center;
+    border-bottom: 3px double var(--ink);
+    padding-bottom: 16px;
+    margin-bottom: 10px;
+  }
+
+  .pub-name {
+    font-family: 'Playfair Display', serif;
+    font-size: 11px;
+    letter-spacing: 0.35em;
+    text-transform: uppercase;
+    color: var(--faded);
+    margin-bottom: 4px;
+  }
+
+  .masthead-rule {
+    border: none;
+    border-top: 1px solid var(--rule);
+    margin: 8px 0;
+  }
+
+  .edition-line {
+    display: flex;
+    justify-content: space-between;
+    font-size: 10.5px;
+    letter-spacing: 0.08em;
+    color: var(--faded);
+    font-family: 'EB Garamond', serif;
+    font-style: italic;
+    margin-bottom: 10px;
+  }
+
+  /* HEADLINE */
+  .headline-block {
+    text-align: center;
+    padding: 28px 0 20px;
+    border-bottom: 1px solid var(--rule);
+    margin-bottom: 24px;
+  }
+
+  .kicker {
+    font-size: 11px;
+    letter-spacing: 0.3em;
+    text-transform: uppercase;
+    color: var(--rust);
+    font-family: 'EB Garamond', serif;
+    margin-bottom: 14px;
+  }
+
+  h1 {
+    font-family: 'Playfair Display', serif;
+    font-size: 54px;
+    line-height: 1.05;
+    font-weight: 900;
+    color: var(--ink);
+    margin-bottom: 18px;
+    letter-spacing: -0.01em;
+  }
+
+  h1 em {
+    font-style: italic;
+    font-weight: 400;
+  }
+
+  .deck {
+    font-size: 17px;
+    line-height: 1.55;
+    color: var(--faded);
+    font-style: italic;
+    max-width: 520px;
+    margin: 0 auto 14px;
+  }
+
+  .byline {
+    font-size: 11.5px;
+    letter-spacing: 0.15em;
+    text-transform: uppercase;
+    color: var(--faded);
+  }
+
+  .byline span {
+    color: var(--rust);
+  }
+
+  /* BODY */
+  .article-body {
+    columns: 2;
+    column-gap: 36px;
+    column-rule: 1px solid var(--rule);
+    font-size: 15.5px;
+    line-height: 1.75;
+  }
+
+  p {
+    margin-bottom: 14px;
+    text-align: justify;
+    hyphens: auto;
+  }
+
+  p:first-child::first-letter {
+    font-family: 'Playfair Display', serif;
+    font-size: 68px;
+    font-weight: 900;
+    line-height: 0.8;
+    float: left;
+    margin: 6px 8px 0 0;
+    color: var(--rust);
+  }
+
+  .section-head {
+    font-family: 'Playfair Display', serif;
+    font-size: 14px;
+    font-weight: 700;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--rust);
+    border-top: 1px solid var(--rule);
+    border-bottom: 1px solid var(--rule);
+    text-align: center;
+    padding: 5px 0;
+    margin: 20px 0 14px;
+    column-span: none;
+  }
+
+  .pull-quote {
+    column-span: all;
+    border-top: 2px solid var(--ink);
+    border-bottom: 2px solid var(--ink);
+    padding: 18px 30px;
+    margin: 24px 0;
+    text-align: center;
+  }
+
+  .pull-quote p {
+    font-family: 'Playfair Display', serif;
+    font-size: 21px;
+    font-style: italic;
+    line-height: 1.45;
+    color: var(--ink);
+    margin: 0;
+    text-align: center;
+  }
+
+  .pull-quote p::first-letter { all: unset; }
+
+  .sidebar {
+    column-span: all;
+    background: var(--aged);
+    border: 1px solid var(--rule);
+    padding: 20px 28px;
+    margin: 22px 0;
+    font-size: 14.5px;
+  }
+
+  .sidebar-title {
+    font-family: 'Playfair Display', serif;
+    font-size: 13px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.12em;
+    color: var(--rust);
+    margin-bottom: 10px;
+    padding-bottom: 6px;
+    border-bottom: 1px solid var(--rule);
+  }
+
+  .sidebar ul {
+    list-style: none;
+    padding: 0;
+    columns: 2;
+    column-gap: 20px;
+  }
+
+  .sidebar li {
+    margin-bottom: 6px;
+    padding-left: 14px;
+    position: relative;
+    line-height: 1.4;
+    font-style: italic;
+  }
+
+  .sidebar li::before {
+    content: '✦';
+    position: absolute;
+    left: 0;
+    font-size: 8px;
+    top: 4px;
+    color: var(--rust);
+  }
+
+  .footer-rule {
+    border: none;
+    border-top: 3px double var(--ink);
+    margin: 36px 0 16px;
+  }
+
+  .footer-note {
+    text-align: center;
+    font-size: 11px;
+    color: var(--faded);
+    font-style: italic;
+    letter-spacing: 0.04em;
+  }
+
+  @media (max-width: 600px) {
+    .newspaper { padding: 30px 24px 50px; }
+    h1 { font-size: 36px; }
+    .article-body { columns: 1; }
+    .edition-line { flex-direction: column; gap: 2px; align-items: center; }
+  }
+</style>
+</head>
+<body>
+
+<article class="newspaper">
+
+  <header class="masthead">
+    <div class="pub-name">The Golden Years Gazette &nbsp;·&nbsp; Est. Whenever We Stopped Working</div>
+    <hr class="masthead-rule">
+    <div class="edition-line">
+      <span>Sunday Morning Edition</span>
+      <span>Price: Free (no budget for luxuries)</span>
+      <span>Circulation: The Bewildered Retired</span>
+    </div>
+  </header>
+
+  <div class="headline-block">
+    <div class="kicker">A Special Report on the Post-Career Condition</div>
+    <h1>What Shall I<br><em>Do Today?</em></h1>
+    <p class="deck">A frank investigation into the magnificent, maddening, and mildly terrifying business of having nowhere to be.</p>
+    <div class="byline">By <span>Our Correspondent</span> &nbsp;·&nbsp; Dispatched from the Kitchen Table, 9:47 AM</div>
+  </div>
+
+  <div class="article-body">
+
+    <p>The alarm clock has been ceremonially unplugged. The briefcase — that faithful, leather-bound symbol of purpose — has been relocated to the garage, where it now serves as a curious shelf for cricket equipment no one uses and wine no one has opened. The calendar, once a dense thicket of obligations, now shows a single entry for the entire week: <em>Doctor. Thursday. Don't forget.</em></p>
+
+    <p>Welcome to retirement. You worked thirty-five years for this. This being, apparently, a Tuesday morning in which your most pressing decision is whether to have a second cup of tea before or after you stand in the garden looking at things.</p>
+
+    <div class="section-head">The Morning Question</div>
+
+    <p>It begins, as all existential crises do, before nine o'clock. You wake — unasked, unprompted, your body having apparently not received the memo about sleeping in — and lie in bed performing what researchers might call "ceiling assessment." The ceiling, it must be said, offers little in the way of stimulation.</p>
+
+    <p>Your spouse, who retired six months before you and has therefore achieved a kind of enlightened serenity you can only envy, mentions helpfully that there is a nice programme about canals on television at eleven. You consider this. You consider it quite seriously, which is perhaps the first warning sign.</p>
+
+    <p>At work, the brain was a finely tuned instrument — processing, deciding, managing, producing. It generated reports. It attended meetings (admittedly, many of which could have been emails, but still: <em>engagement</em>). It solved problems before breakfast and fielded telephone calls from people named Derek who were very upset about the quarterly figures. The brain, in short, had things to do.</p>
+
+    <p>Now the brain sits in the armchair of your skull and stares out the window. Occasionally it formulates a thought. <em>Should probably clean the gutters.</em> Then it loses interest and goes back to staring.</p>
+
+    <div class="pull-quote">
+      <p>"You worked thirty-five years for this. <em>This</em> being, apparently, a Tuesday morning in which your most pressing decision is whether to have a second cup of tea before or after you stand in the garden looking at things."</p>
+    </div>
+
+    <div class="section-head">The Technology Problem</div>
+
+    <p>It is at approximately this point that you decide to engage with the modern world. This is inadvisable.</p>
+
+    <p>Your grandchild has set up something called a "smart" television, which is a television that has opinions. It requires a password. You do not know the password. You wrote the password down somewhere. The piece of paper with the password on it has entered a dimension accessible only to reading glasses and television remotes.</p>
+
+    <p>You attempt the telephone instead. The telephone, once a simple device for speaking to other people, now contains the entire accumulated knowledge of human civilisation and approximately four hundred applications, none of which you requested and many of which update themselves at two in the morning with what can only be described as enthusiasm.</p>
+
+    <p>A notification arrives. It is from something called Duo and it wishes to verify your identity. You do not know who Duo is. Duo is very insistent. There is also a message from your bank explaining that for your security they have changed everything. There is an invitation to join something. There is a news alert of sufficient alarm that you briefly regret reading it. There are seventeen unread emails, the oldest of which is from 2019.</p>
+
+    <p>You put the telephone face-down on the table. This counts, you decide, as a decisive action.</p>
+
+    <div class="section-head">The Other Kind of Retired Person</div>
+
+    <p>Then there is the other sort. You know who they are. You have seen them. They email at six in the morning with the subject line <em>Exciting Update!</em> They have taken up watercolours, German, Pilates, and beekeeping — simultaneously. They are chairperson of the neighbourhood watch, treasurer of the bowls club, lead organiser of the church restoration committee, and are learning to make sourdough, which they will bring to every social occasion for the next four years whether or not bread was requested.</p>
+
+    <p>These people have not so much retired as <em>rebranded</em>. They have exchanged one full calendar for a fuller one. They will tell you, with the evangelical brightness of the recently converted, that retirement is the busiest time of their lives. They begin sentences with "I don't know how I ever had time for a job!" and mean it entirely unironically.</p>
+
+    <p>You nod at them. You admire them. You find them, if you are honest, slightly exhausting. You also suspect — and this suspicion arrives quietly, with the dignity of a private thought — that some of them are simply afraid of the silence, and that all the watercolours and committees are an elaborate arrangement of furniture against the draft.</p>
+
+    <p>Not that you would say this. You are retired, not reckless.</p>
+
+    <div class="section-head">The Financial Reality</div>
+
+    <p>At some point in the late morning, the matter of money enters the room and sits down without being invited.</p>
+
+    <p>Money in retirement is a subject of considerable delicacy. There was a plan, naturally. The plan involved a pension, some savings, and a vague sense that things would work out, accompanied by figures from a financial advisor who had the reassuring confidence of someone who has never actually retired.</p>
+
+    <p>What the plan did not account for, with sufficient precision, is that <em>not going anywhere</em> is surprisingly expensive. There is the heating, which must now run during hours previously covered by someone else's office building. There is lunch, which you now eat at home rather than at your desk while pretending to work through it. There are the small treats — the coffee out, the magazine, the slightly nicer biscuits — which are not extravagances, exactly, but are the texture of a day otherwise lacking in event.</p>
+
+    <p>You read an article about retired people taking luxury cruises and feel a distant, academic interest, the way one feels about articles describing the habits of snow leopards. Informative. Not immediately applicable.</p>
+
+    <p>The gutters, you remind yourself, still need cleaning. This is free. This has the makings of an afternoon.</p>
+
+    <div class="sidebar">
+      <div class="sidebar-title">A Typical Retired Day: An Honest Account</div>
+      <ul>
+        <li>7:12 AM — Awake, for no reason</li>
+        <li>7:45 AM — Tea. Second tea.</li>
+        <li>8:30 AM — Newspaper. Strong opinions formed.</li>
+        <li>9:15 AM — Stare at garden. Garden unchanged.</li>
+        <li>10:00 AM — Attempt technology. Defeated.</li>
+        <li>10:45 AM — Walk considered. Postponed.</li>
+        <li>11:00 AM — Canal documentary begins.</li>
+        <li>12:30 PM — Lunch. (What is there?) Lunch.</li>
+        <li>1:15 PM — Brief nap. Deny it was a nap.</li>
+        <li>3:00 PM — Gutters assessed. Deferred again.</li>
+        <li>4:30 PM — News. More strong opinions.</li>
+        <li>5:45 PM — "What shall we do this evening?"</li>
+        <li>9:30 PM — Bed. Earlier than intended.</li>
+        <li>9:31 PM — Lie awake wondering if this is it.</li>
+      </ul>
+    </div>
+
+    <div class="section-head">A Kind of Peace</div>
+
+    <p>And yet.</p>
+
+    <p>Around half-past three, when the light comes through the kitchen window at that particular afternoon angle and the tea is fresh and the radio is playing something without any obligation attached to it, there is a moment — quiet, small, nothing to report — in which the accumulated machinery of forty working years simply stops.</p>
+
+    <p>No decision is required of you. No one needs anything. The gutters can wait until Thursday, or possibly spring. The television remote is in the freezer, where it will eventually be found, and this too will pass.</p>
+
+    <p>The brain, that formerly overworked instrument, blinks. Looks around. Notices, with something approaching surprise, that the garden has a bird in it. That the tea is good. That your spouse is reading in the next room and will shortly say something you will find faintly irritating and will also be glad to hear.</p>
+
+    <p>This is not, you concede, the retirement of the brochures. There is no yacht. The Tuscan villa remains hypothetical. The grandchildren visit occasionally and regard you with a mixture of affection and technical condescension that is, on balance, fair.</p>
+
+    <p>But it is yours. All of it. The unstructured, slightly bewildering, occasionally maddening, quietly remarkable whole of it.</p>
+
+    <p>Tomorrow you will clean the gutters. Or perhaps take up watercolours. Or simply make the tea and stand in the garden again, watching things, in no particular hurry to stop.</p>
+
+    <p>What shall you do today?</p>
+
+    <p><em>Today, it appears, you shall do this.</em></p>
+
+  </div>
+
+  <hr class="footer-rule">
+  <p class="footer-note">The Golden Years Gazette accepts no responsibility for naps taken, remotes misplaced, or passwords lost. All opinions are our own and were formed before 9 AM.</p>
+
+</article>
+
+</body>
+</html>
