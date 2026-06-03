@@ -265,6 +265,10 @@ function gcalTaskUrl(t){
   const p=new URLSearchParams({action:"TEMPLATE",text:t.title,details:"Category: "+t.category+" | Priority: "+t.priority+" | "+t.recurrence});
   return"https://calendar.google.com/calendar/render?"+p.toString();
 }
+function gcalStepUrl(stepText,projectTitle){
+  const p=new URLSearchParams({action:"TEMPLATE",text:stepText,details:"Project: "+projectTitle});
+  return"https://calendar.google.com/calendar/render?"+p.toString();
+}
 
 // ── App ─────────────────────────────────────────────────────────────────────
 function App(){
@@ -1204,7 +1208,8 @@ function Projects({projects,setProjects}){
                 {p.steps.map(s=>(
                   <div key={s.id} style={{display:"flex",alignItems:"center",gap:10,marginBottom:8,opacity:s.done?.5:1}}>
                     <input type="checkbox" checked={s.done} onChange={()=>toggleStep(p.id,s.id)} style={{width:16,height:16,cursor:"pointer",accentColor:"#7B5C4A"}}/>
-                    <span style={{fontFamily:"'Source Sans 3',sans-serif",fontSize:14,textDecoration:s.done?"line-through":"none"}}>{s.text}</span>
+                    <span style={{flex:1,fontFamily:"'Source Sans 3',sans-serif",fontSize:14,textDecoration:s.done?"line-through":"none"}}>{s.text}</span>
+                    <a href={gcalStepUrl(s.text,p.title)} target="_blank" rel="noopener noreferrer" title="Add to Google Calendar" style={{display:"inline-flex",alignItems:"center",gap:4,border:"1.5px solid #7B9EBF",borderRadius:8,padding:"3px 8px",fontSize:11,color:"#7B9EBF",fontFamily:"'Source Sans 3',sans-serif",fontWeight:600,textDecoration:"none",background:"transparent",cursor:"pointer",flexShrink:0}}>📅</a>
                   </div>
                 ))}
               </div>}
