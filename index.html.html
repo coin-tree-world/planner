@@ -248,6 +248,28 @@ function todayStr(){return new Date().toISOString().slice(0,10)}
 function fmtDate(d){if(!d)return"";const dt=new Date(d+"T12:00:00");return`${DAYS[dt.getDay()]} ${dt.getDate()} ${MONTHS[dt.getMonth()]}`}
 function daysUntil(d){const n=new Date();n.setHours(0,0,0,0);const dt=new Date(d+"T00:00:00");dt.setHours(0,0,0,0);return Math.round((dt-n)/86400000)}
 
+// ── Google Calendar helpers ─────────────────────────────────────────────────
+function gcalApptUrl(a){
+  // Format: YYYYMMDDTHHmmss / YYYYMMDDTHHmmss
+  const start=a.date.replace(/-/g,"")+"T"+a.time.replace(":","")+"00";
+  // Default 1 hour duration
+  const [hh,mm]=a.time.split(":").map(Number);
+  const endH=String(hh+1).padStart(2,"0");
+  const end=a.date.replace(/-/g,"")+"T"+endH+a.time.slice(2).replace(":","")+"00";
+  const p=new URLSearchParams({action:"TEMPLATE",text:a.title,dates:start+"/"+end,details:a.notes||"",location:""});
+  return"https://calendar.google.com/calendar/render?"+p.toString();
+}
+function gcalTaskUrl(t){
+  // Tasks have no date — open a blank event for today
+  const today=todayStr().replace(/-/g,"");
+  const p=new URLSearchParams({action:"TEMPLATE",text:t.title,details:"Category: "+t.category+" | Priority: "+t.priority+" | "+t.recurrence});
+  return"https://calendar.google.com/calendar/render?"+p.toString();
+}
+function gcalStepUrl(stepText,projectTitle){
+  const p=new URLSearchParams({action:"TEMPLATE",text:stepText,details:"Project: "+projectTitle});
+  return"https://calendar.google.com/calendar/render?"+p.toString();
+}
+
 // ── App ─────────────────────────────────────────────────────────────────────
 function App(){
   const SEED={tasks:seedTasks,appointments:seedAppointments,meals:{},recipes:seedRecipes,foods:seedFoods,projects:seedProjects,grocery:[],pantry:seedPantry,calorieGoal:2000};
@@ -312,13 +334,13 @@ function App(){
     setDataRaw(prev=>{
       const next=typeof updater==="function"?updater(prev):updater;
       if(skipSave.current){skipSave.current=false;return next;}
+      // Always save to localStorage as local backup
+      try{localStorage.setItem("lp-all",JSON.stringify(next));}catch{}
       if(window._fbConfigured&&user){
         setSyncStatus("saving");
         const ref=window._fbDoc("users/"+user.uid+"/planner/data");
         clearTimeout(window._lpt);
         window._lpt=setTimeout(()=>window._fbSetDoc(ref,next).then(()=>setSyncStatus("synced")).catch(()=>setSyncStatus("error")),900);
-      } else {
-        try{localStorage.setItem("lp-all",JSON.stringify(next));}catch{}
       }
       return next;
     });
@@ -526,7 +548,8 @@ function Tasks({tasks,setTasks}){
                 {t.recurrence==="weekly"?`Every ${t.day}`:t.recurrence==="daily"?"Daily":t.recurrence} · <span style={{color:t.priority==="high"?"#D4524A":t.priority==="low"?"#88B04B":"#C9874F",fontWeight:700}}>{t.priority} priority</span>
               </div>
             </div>
-            <div style={{display:"flex",gap:6}}>
+            <div style={{display:"flex",gap:6,flexWrap:"wrap"}}>
+              <a href={gcalTaskUrl(t)} target="_blank" rel="noopener noreferrer" title="Add to Google Calendar" style={{display:"inline-flex",alignItems:"center",gap:4,border:"1.5px solid #7B9EBF",borderRadius:8,padding:"4px 10px",fontSize:12,color:"#7B9EBF",fontFamily:"'Source Sans 3',sans-serif",fontWeight:600,textDecoration:"none",background:"transparent",cursor:"pointer",transition:"all .18s"}}>📅 GCal</a>
               <button className="btn btn-ghost" onClick={()=>openEdit(t)} style={{fontSize:12,padding:"4px 10px"}}>Edit</button>
               <button className="btn btn-danger" onClick={()=>del(t.id)} style={{fontSize:12,padding:"4px 10px"}}>✕</button>
             </div>
@@ -581,7 +604,8 @@ function Appointments({appointments,setAppointments}){
         </div>
         {a.notes&&<div style={{fontSize:13,color:"#8A7A6A",fontFamily:"'Source Sans 3',sans-serif",marginTop:4,fontStyle:"italic"}}>{a.notes}</div>}
       </div>
-      <div style={{display:"flex",gap:6,alignItems:"flex-start"}}>
+      <div style={{display:"flex",gap:6,alignItems:"flex-start",flexWrap:"wrap"}}>
+        <a href={gcalApptUrl(a)} target="_blank" rel="noopener noreferrer" title="Add to Google Calendar" style={{display:"inline-flex",alignItems:"center",gap:4,border:"1.5px solid #7B9EBF",borderRadius:8,padding:"4px 10px",fontSize:12,color:"#7B9EBF",fontFamily:"'Source Sans 3',sans-serif",fontWeight:600,textDecoration:"none",background:"transparent",cursor:"pointer",transition:"all .18s"}}>📅 GCal</a>
         <button className="btn btn-ghost" onClick={()=>openEdit(a)} style={{fontSize:12,padding:"4px 10px"}}>Edit</button>
         <button className="btn btn-danger" onClick={()=>del(a.id)} style={{fontSize:12,padding:"4px 10px"}}>✕</button>
       </div>
@@ -1184,7 +1208,8 @@ function Projects({projects,setProjects}){
                 {p.steps.map(s=>(
                   <div key={s.id} style={{display:"flex",alignItems:"center",gap:10,marginBottom:8,opacity:s.done?.5:1}}>
                     <input type="checkbox" checked={s.done} onChange={()=>toggleStep(p.id,s.id)} style={{width:16,height:16,cursor:"pointer",accentColor:"#7B5C4A"}}/>
-                    <span style={{fontFamily:"'Source Sans 3',sans-serif",fontSize:14,textDecoration:s.done?"line-through":"none"}}>{s.text}</span>
+                    <span style={{flex:1,fontFamily:"'Source Sans 3',sans-serif",fontSize:14,textDecoration:s.done?"line-through":"none"}}>{s.text}</span>
+                    <a href={gcalStepUrl(s.text,p.title)} target="_blank" rel="noopener noreferrer" title="Add to Google Calendar" style={{display:"inline-flex",alignItems:"center",gap:4,border:"1.5px solid #7B9EBF",borderRadius:8,padding:"3px 8px",fontSize:11,color:"#7B9EBF",fontFamily:"'Source Sans 3',sans-serif",fontWeight:600,textDecoration:"none",background:"transparent",cursor:"pointer",flexShrink:0}}>📅</a>
                   </div>
                 ))}
               </div>}
